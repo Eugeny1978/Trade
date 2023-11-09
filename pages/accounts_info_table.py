@@ -14,7 +14,6 @@ def get_accounts():
     with sq.connect(DATABASE) as connect:
         connect.row_factory = sq.Row  # Строки записей в виде dict {}. По умолчанию - кортежи turple ()
         curs = connect.cursor()
-
         curs.execute("""SELECT 
 account, 
 apikey as apiKey, 
@@ -43,11 +42,9 @@ def connect_exchange(account):
             exchange = ccxt.gateio(apikeys)
         case _:
             exchange = None
-
     # match account['exchange']:
     #     case 'Binance' | 'Bybit' | 'Mexc' | 'Gate_io':
     #         exchange.load_markets()
-
     return exchange
 
 def get_balance(exchange):
@@ -72,19 +69,11 @@ def get_orders(exchange):
     except Exception as error:
         return pd.DataFrame({'ERROR': error.args})
 
-
 def get_account_names(accounts):
     account_names = []
     for account in accounts:
         account_names.append(account['account'])
     return account_names
-
-# def get_tab_names(account_names):
-#     tab_names = []
-#     for name in account_names:
-#         tab_names.append(f'tab_{name}')
-#     return tab_names
-
 
 
 st.set_page_config(layout="wide") # Вся страница вместо узкой центральной колонки
