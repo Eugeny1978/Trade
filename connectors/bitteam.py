@@ -2,6 +2,7 @@
 import pandas as pd                             # Преобразовать Словари в Таблицы
 import sqlite3 as sq                            # Библиотека  Работа с БД
 from data_bases.path_to_base import DATABASE        # Путь к БД
+from typing import Literal
 
 # responce = requests.post(url, auth, data, headers=headers) # Возможно необходимо прописать Заголовок headers = {'user-agent': 'my-app/0.0.1'}
 
@@ -11,6 +12,9 @@ import requests                                 # Библиотека для с
 # symbol='del_usdt' - родной
 # symbol='DEL/USDT' - Унификация с ccxt. Преобразуется в del_usdt
 
+OrderSide = Literal['buy', 'sell']
+OrderType = Literal['limit', 'market']
+UserOrderTypes = Literal['history', 'active', 'closed', 'cancelled', 'all'] # history = closed + cancelled
 
 
 class BitTeam(): # Request
@@ -67,6 +71,7 @@ class BitTeam(): # Request
         responce = requests.get(url=end_point)
         self.status = responce.status_code
         self.data = responce.json()
+        self.load_symbols_database() # Возможно сделать доп проверку чтобы не постоянно скидывать в базу
         return self.data
 
     def load_symbols_database(self): # Применять ТОЛЬКО сразу после Метода info_symbols
@@ -89,10 +94,7 @@ class BitTeam(): # Request
             VALUES (:Id, :Name, :BaseStep, :QuoteStep)
              """, {'Id': symbol['id'], 'Name': symbol['name'], 'BaseStep': symbol['baseStep'], 'QuoteStep': symbol['quoteStep']})
 
-
 # --- ПРИВАТНЫЕ ЗАПРОСЫ. Требуется Предварительная Авторизация -----------------------------
-
-
 
     def authorization(self):
         if (not self.account['apiKey']) or (not self.account['secret']):
@@ -112,33 +114,13 @@ class BitTeam(): # Request
         self.data = responce.json()
         return self.data['result']
 
-    def create_order_original(self, body: dict):
-        """
-        body = {'pairId':   str, #  '24' del_usdt
-                'side':     str, # "buy", "sell"
-                'type':     str, # "limit", "market"
-                'amount':   str, # '330' (value in coin1 (farms))
-                'price':    str  # '0.04' (price in base coin (usdt))
-                }
-        """
-        end_point = f'{self.base_url}/ccxt/ordercreate'
-        responce = requests.post(url=end_point, auth=self.auth, data=body)
-        self.status = responce.status_code
-        self.data = responce.json()
-        if self.status == 200:
-            print(f'BitTeam. Создан Ордер ID: {self.data["result"]["id"]}')
-        else:
-            print(f'BitTeam_DONT_create_order_{body["pairId"]}_{body["side"]}_{body["type"]}_{body["amount"]}_{body["price"]}')
-            print(self.data)
-        return self.data # Доработать ВЕРНУТЬ инфу для заполнения таблицы Ордеров в Базе Данных!
-
-    def get_pairId_database(self, symbol):
+    def __get_pairId_database(self, symbol):
         with sq.connect(self.database) as connect:
             curs = connect.cursor()
             curs.execute("""SELECT id FROM Symbols WHERE name LIKE ?""", [symbol])
             return str(curs.fetchone()[0])
 
-    def create_order(self, symbol: str, type: str, side: str, amount: float, price: float):
+    def create_order(self, symbol: str, type: OrderType, side: OrderSide, amount: float, price: float):
         """
         Привести к Виду:
         body = {'pairId':   str, #  '24' del_usdt
@@ -148,8 +130,8 @@ class BitTeam(): # Request
                 'price':    str  # '0.04' (price in base coin (usdt))
                 }
         """
-        symbol = self.format_symbol(symbol)
-        pairId = self.get_pairId_database(symbol)
+        if not self.auth: self.authorization()
+        pairId = self.__get_pairId_database(self.format_symbol(symbol))
         body = {'pairId': pairId,
                 'side': side,
                 'type': type,
@@ -163,10 +145,97 @@ class BitTeam(): # Request
         if self.status == 200:
             print(f'BitTeam. Создан Ордер ID: {self.data["result"]["id"]}')
         else:
-            print(f'BitTeam_DONT_create_order_{body["pairId"]}_{body["side"]}_{body["type"]}_{body["amount"]}_{body["price"]}')
+            print(f'BitTeam_DONT_create_order_{symbol}_{side}_{type}_{body["amount"]}_{body["price"]}')
             print(self.data)
         return self.data # Доработать ВЕРНУТЬ инфу для заполнения таблицы Ордеров в Базе Данных!
 
+    def cancel_order(self, id: (int, str)):
+        """
+        cancel_order(self, id: str, symbol: Optional[str] = None, params={}) # ccxt
+        id_order = data['result']['id'] # create_order(body)
+        """
+        if not self.auth: self.authorization()
+        end_point = f'{self.base_url}/ccxt/cancelorder'
+        body = {"id": id}
+        responce = requests.post(url=end_point, auth=self.auth, data=body)
+        self.status = responce.status_code
+        self.data = responce.json()
+        if self.status == 200:
+            print(f'BitTeam. Удален Ордер ID: {id}')
+        else:
+            print(f'BitTeam. Ордер ID: {id} - НЕ Удален')
+        return self.data # Подумай что он должен вернуть
+
+    def cancel_all_orders(self, symbol=None):
+        """
+        cancel_all_orders(self, symbol: Optional[str] = None, params={}) # ccxt
+        pairId 1-100 - по конкретной паре || 0 - all pairs | 24 - del_usdt
+        """
+        if not self.auth: self.authorization()
+        if symbol:
+            pairId = self.__get_pairId_database(self.format_symbol(symbol))
+        else:
+            pairId = 0
+        end_point = f'{self.base_url}/ccxt/cancel-all-order'
+        body = {"pairId": pairId}
+        responce = requests.post(url=end_point, auth=self.auth, data=body)
+        self.status = responce.status_code
+        self.data = responce.json()
+        if self.status == 200 and not pairId:
+            print(f'BitTeam. Удалены ВСЕ Ордера')
+        elif self.status == 200:
+            print(f'BitTeam. Удалены Все Ордера по Символу: {symbol}')
+        else:
+            print(f'BitTeam. Ордера НЕ Удалены. | Символ: {symbol}')
+        return self.data # Подумай что он должен вернуть
+
+    def fetch_order(self, order_id: (int or str)):
+        """
+        # fetch_order(self, id: str, symbol: Optional[str] = None, params={})  # ccxt
+        Информация об Ордере по его ID
+        """
+        if not self.auth: self.authorization()
+        end_point = f'{self.base_url}/ccxt/order/{order_id}'
+        responce = requests.get(url=end_point, auth=self.auth)
+        self.status = responce.status_code
+        self.data = responce.json()
+        return self.data
+
+
+    def fetch_orders(self, symbol=None, since=None, limit=10, type:UserOrderTypes='active', offset=0, order='', where=''):
+        """
+        fetch_orders(self, symbol: Optional[str] = None, since: Optional[int] = None, limit: Optional[int] = None, params={})
+
+        Ордера за Текущую Дату
+        type= 'history', 'active', 'closed', 'cancelled', 'all'| history = closed + cancelled
+        offset=х - смещение: не покажет первые Х ордеров
+        {{baseUrl}}/trade/api/ccxt/ordersOfUser?limit=10&offset=0&type=active&order=<string>&where=<string>
+        """
+        # Необязательные Параметры
+        url_limit = '' if limit == 10 else f'&limit={limit}'
+        url_offset = '' if offset == 0 else f'&offset={offset}'
+        url_order = '' if order == '' else f'&order={order}'
+        url_where = '' if where == '' else f'&where={where}'
+        if not self.auth: self.authorization()
+        end_point = f'{self.base_url}/ccxt/ordersOfUser?type={type}' + url_limit + url_offset + url_order + url_where
+        responce = requests.get(url=end_point, auth=self.auth)
+        self.status = responce.status_code
+        self.data = responce.json()
+        if self.status == 200 and symbol:
+            self.__filter_orders(self.format_symbol(symbol))
+        return self.data
+
+    def __filter_orders(self, symbol):
+        count = 0
+        data_orders = []
+        for order in self.data['result']['orders']:
+            if order['pair'] == symbol:
+                data_orders.append(order)
+                count += 1
+        self.data['result']['orders'] = data_orders
+        self.data['result']['count'] = count
 
 # class AuthorizationException(Exception):
 #     print('Ошибка Авторизации. Задайте/Проверьте Публичный и Секретный АПИ Ключи')
+
+
