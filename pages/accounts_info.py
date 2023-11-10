@@ -6,6 +6,7 @@ import pandas as pd                             # Преобразовать С�
 # import os, signal                               # Запуск внешних скриптов / Куски кода в комментах
 import ccxt
 from data_bases.path_to_base import DATABASE
+from connectors.bitteam import BitTeam
 
 # В терминале набрать:
 # streamlit run app.py
@@ -34,7 +35,7 @@ def connect_exchange(account):
             if account['type'] == 'test':
                 exchange.set_sandbox_mode(True)
         case 'BitTeam':
-            exchange = None
+            exchange = BitTeam(apikeys)
         case 'Bybit':
             exchange = ccxt.bybit(apikeys)
         case 'Mexc':
@@ -58,7 +59,8 @@ def get_balance(exchange):
         indexes = ['free', 'used', 'total']
         columns = [balance['free'], balance['used'], balance['total']]
         df = pd.DataFrame(columns, index=indexes)
-        df_compact = df.loc[:, (df != 0).any(axis=0)]
+        df_0 = df.loc[:, (df != 0).any(axis=0)]  # убирает Столбцы с 0 знгачениями
+        df_compact = df_0.loc[:, (df_0 != '0').any(axis=0)]  # если числа в виде строк
         return df_compact
     except Exception as error:
         return pd.DataFrame({'ERROR': error.args}) # , df_compact.columns
