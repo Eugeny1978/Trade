@@ -1,13 +1,10 @@
-# from api.request import Request               # Базовый Класс
-import pandas as pd                             # Преобразовать Словари в Таблицы
+import requests                                 # Библиотека для создания и обработки запросов
 import sqlite3 as sq                            # Библиотека  Работа с БД
-from data_bases.path_to_base import DATABASE        # Путь к БД
-from typing import Literal
+from typing import Literal                      # Создание Классов Перечислений
+# import pandas as pd                           # Преобразовать Словари в Таблицы
+from data_bases.path_to_base import DATABASE    # Путь к БД
 
 # responce = requests.post(url, auth, data, headers=headers) # Возможно необходимо прописать Заголовок headers = {'user-agent': 'my-app/0.0.1'}
-
-import requests                                 # Библиотека для создания и обработки запросов
-
 # Допустимый Формат Написания Торговых Пар (Символов)
 # symbol='del_usdt' - родной
 # symbol='DEL/USDT' - Унификация с ccxt. Преобразуется в del_usdt
@@ -15,7 +12,6 @@ import requests                                 # Библиотека для с
 OrderSide = Literal['buy', 'sell']
 OrderType = Literal['limit', 'market']
 UserOrderTypes = Literal['history', 'active', 'closed', 'cancelled', 'all'] # history = closed + cancelled
-
 
 class BitTeam(): # Request
     base_url = 'https://bit.team/trade/api'
@@ -71,17 +67,15 @@ class BitTeam(): # Request
         responce = requests.get(url=end_point)
         self.status = responce.status_code
         self.data = responce.json()
-        self.load_symbols_database() # Возможно сделать доп проверку чтобы не постоянно скидывать в базу
+        self.__load_symbols_database() # Возможно сделать доп проверку чтобы не постоянно скидывать в базу
         return self.data
 
-    def load_symbols_database(self): # Применять ТОЛЬКО сразу после Метода info_symbols
+    def __load_symbols_database(self): # Применять ТОЛЬКО сразу после Метода info_symbols
         """
         Получает данные по Всем парам и записывает их в базу Данных SQL.
         id, name, baseStep, quoteStep
         Перед записью существующие записи удаляет.
         """
-        self.info_symbols()
-
         with sq.connect(self.database) as connect:
             # connect_db.row_factory = sq.Row  # Если хотим строки записей в виде dict {}. По умолчанию - кортежи turple ()
             curs = connect.cursor()
@@ -201,7 +195,6 @@ class BitTeam(): # Request
         self.data = responce.json()
         return self.data
 
-
     def fetch_orders(self, symbol=None, since=None, limit=10, type:UserOrderTypes='active', offset=0, order='', where=''):
         """
         fetch_orders(self, symbol: Optional[str] = None, since: Optional[int] = None, limit: Optional[int] = None, params={})
@@ -237,5 +230,3 @@ class BitTeam(): # Request
 
 # class AuthorizationException(Exception):
 #     print('Ошибка Авторизации. Задайте/Проверьте Публичный и Секретный АПИ Ключи')
-
-
