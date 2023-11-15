@@ -89,8 +89,20 @@ def get_balance():
         balance = get_balance_account()
         return balance
 
-def get_binance_symbol_info(data):
-    return None
+def get_ccxt_symbol_info(data):
+    info = {'Open 24h': data['open'],
+            'Close 24h': data['close'],
+            'High 24h': data['high'],
+            'Low 24h': data['low'],
+            'Best Ask': data['ask'],
+            'Best Bid': data['bid'],
+            'VWAP 24h': data['vwap'],
+            'Change 24h': data['change'],
+            'Percente 24h': data['percentage'],
+            'Volume 24h Base': round(data['baseVolume']),
+            'Volume 24h Quote': round(data['quoteVolume'])
+            }
+    return pd.DataFrame.from_dict(info, orient='index').transpose()
 
 def get_bitteam_symbol_info(data):
     data_ = data['result']['pair']
@@ -99,13 +111,14 @@ def get_bitteam_symbol_info(data):
             'last BUY': float(data_['lastBuy']),
             'last SELL': float(data_['lastSell']),
             'change 24h': float(data_['change24']),
-            'volume 24h Base': data_['volume24'],
-            'volume 24h Quote': data_['quoteVolume24'],
-            'volume 24h USD': data_['volume24USD'],
-            'amount ASKS': float(data_['quantities']['asks']),
-            'amount BIDS': float(data_['quantities']['bids'])
+            'amount ASKS': round(float(data_['quantities']['asks'])),
+            'amount BIDS': round(float(data_['quantities']['bids'])),
+            'volume 24h Base': round(data_['volume24']),
+            'volume 24h Quote': round(data_['quoteVolume24']),
+            'volume 24h USD': round(data_['volume24USD'])
     }
-    return info
+    return pd.DataFrame.from_dict(info, orient='index').transpose()
+
 
 
 def get_symbol_info_exchange():
@@ -113,36 +126,24 @@ def get_symbol_info_exchange():
     exchange = connect_exchange(account_name)
     data = exchange.fetch_ticker(symbol)
     match account_exchange:
-        case 'Binance':
-            info = get_binance_symbol_info(data)
+        case 'Binance' | 'Bybit' | 'Mexc' | 'Gate_io':
+            info = get_ccxt_symbol_info(data)
         case 'BitTeam':
             info = get_bitteam_symbol_info(data)
-        case 'Bybit':
-            info = None
-        case 'Mexc':
-            info = None
-        case 'Gate_io':
-            info = None
         case _:
             info = None
     return info
-
-
 
 def get_symbol_info():
     if st.session_state.symbol:
         info = get_symbol_info_exchange()
         return info
-    pass
-
-
-
 
 
 st.subheader('Прототип Интерфейта Торговой Стратегии "2 Опорных Плиты и Приманка"', anchor=False, divider='red')
 
-marks = ['Step 1. Analys and Info', 'Step 2', 'Step 3', 'Step 4', 'Step 5']
-tabs = st.tabs(marks)
+marks = ['Step 1. Account', 'Step 2 Trade Pair', 'Step Trade Amount', 'Step 4', 'Step 5']
+tabs = st.tabs(marks, )
 
 with tabs[0]:
     accounts = pd.DataFrame(get_all_accounts(), columns=['account', 'exchange', 'type'])
@@ -158,13 +159,11 @@ with tabs[0]:
     toggle_balance = st.toggle('Таблица Баланса по Счету', on_change=get_balance, key='balance')
     st.write(get_balance())
 
-    symbols = ['DEL/USDT', 'ETH/USDT', 'BTC/USDT', 'ATOM/USDT', 'XRP/USDT']
+with tabs[1]:
+    symbols = ['DEL/USDT', 'ETH/USDT', 'BTC/USDT', 'ATOM/USDT', 'XRP/USDT', 'MX/USDT']
     symbol = st.selectbox('Symbol', options=symbols, index=None, placeholder="Select Trade Symbol...")
     toggle_symbol = st.toggle('Информация по Торговой Паре', on_change=get_symbol_info, key='symbol')
-    # st.write(get_symbol_info())
-    st.dataframe(get_symbol_info())
-
-
+    st.write(get_symbol_info())
 
 
 # 1. Выбрать Торговый Аккаунт (ключи)
