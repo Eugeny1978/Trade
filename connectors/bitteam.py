@@ -39,7 +39,7 @@ class BitTeam(): # Request
         self.data = responce.json()
         return self.data
 
-    def fetch_tiker(self, symbol='del_usdt'):
+    def fetch_ticker(self, symbol='del_usdt'):
         """
         Весь Стакан есть и в запросе "orderbooks". Здесь он обрезан лимитом в 50 слотов
         # Мин. шаг размера Лота. Кол-во знаков в Дроби после целой части. int()
