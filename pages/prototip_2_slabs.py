@@ -115,7 +115,8 @@ def get_bitteam_symbol_info(data):
             'amount BIDS': round(float(data_['quantities']['bids'])),
             'volume 24h Base': round(data_['volume24']),
             'volume 24h Quote': round(data_['quoteVolume24']),
-            'volume 24h USD': round(data_['volume24USD'])
+            'volume 24h USD': round(data_['volume24USD']),
+            'volume 24h USD': round(data_['volume24USD']),
     }
     return pd.DataFrame.from_dict(info, orient='index').transpose()
 
@@ -164,7 +165,3 @@ with tabs[1]:
     symbol = st.selectbox('Symbol', options=symbols, index=None, placeholder="Select Trade Symbol...")
     toggle_symbol = st.toggle('Информация по Торговой Паре', on_change=get_symbol_info, key='symbol')
     st.write(get_symbol_info())
-
-
-# 1. Выбрать Торговый Аккаунт (ключи)
-
