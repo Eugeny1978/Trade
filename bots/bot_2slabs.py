@@ -125,20 +125,67 @@ def create_orders_2(exchange, price_levels, amounts):
     # sleep(SLEEP_1slab)
     return (sell_order, buy_order)
 
-def create_orders_carrot(exchange, price_levels, amounts):
+def get_num_orders_carrot(amounts, price_levels):
+    amount = amounts['ask_carrot'] * price_levels['ask_carrot']
+    slice = amount / NUM_carrots
+    if slice >= MIN_AMOUNT:
+        return NUM_carrots
+    else:
+        return int(amount / MIN_AMOUNT)
+
+
+def get_slices(num_carrot, amounts, step_volume):
+    slice = round(amounts['ask_carrot'] / num_carrot, step_volume)
+    ask_slices = []
+    bid_slices = []
+    for i in range(1, num_carrot):
+      ask_slices.append(round(random.randrange(90, 110) * 0.01 * slice, step_volume))
+      bid_slices.append(round(random.randrange(90, 110) * 0.01 * slice, step_volume))
+    ask_subsum = sum(ask_slices)
+    bid_subsum = sum(bid_slices)
+    ask_slices.append(round(amounts['ask_carrot'] - ask_subsum, step_volume))
+    bid_slices.append(round(amounts['ask_carrot'] - ask_subsum, step_volume))
+    return {'ask_slices': ask_slices, 'bid_slices': bid_slices}
+
+
+def get_carrot_prices(num_carrot, price_levels, step_price):
+    ask_prices = [price_levels['ask_carrot']]
+    bid_prices = [price_levels['bid_carrot']]
+    delta = (price_levels['ask_1'] - price_levels['ask_carrot']) / num_carrot
+    for i in range(1, num_carrot):
+        ask_delta = round(random.uniform(0.8 * delta, 1.2 * delta), step_price)
+        bid_delta = round(random.uniform(0.8 * delta, 1.2 * delta), step_price)
+        ask_prices.append(round(ask_prices[i-1] + ask_delta, step_price))
+        bid_prices.append(round(bid_prices[i-1] - bid_delta, step_price))
+    return {'ask_prices': ask_prices, 'bid_prices': bid_prices}
 
 
 
-    sell_order = exchange.create_order(SYMBOL, type='limit', side='sell', amount=amounts['ask_2'], price=price_levels['ask_2'])
-    buy_order = exchange.create_order(SYMBOL, type='limit', side='buy', amount=amounts['bid_2'], price=price_levels['bid_2'])
-    # Скинуть данные в Базу Данных
-    # sleep(SLEEP_1slab)
-    return (sell_order, buy_order)
 
+def create_orders_carrot(exchange, price_levels, amounts, step_price, step_volume):
+    num_carrot = get_num_orders_carrot(amounts, price_levels)
+    carrot_slices = get_slices(num_carrot, amounts, step_volume)
+    carrot_prices = get_carrot_prices(num_carrot, price_levels, step_price)
 
+    sell_carrots = []
+    buy_carrots = []
+    for i in range(num_carrot-1):
+        sell_order = exchange.create_order(SYMBOL, type='limit', side='sell', amount=carrot_slices['ask_slices'][i], price=carrot_prices['ask_prices'][i])
+        sell_carrots.append(sell_order)
+        buy_order = exchange.create_order(SYMBOL, type='limit', side='buy', amount=carrot_slices['bid_slices'][i], price=carrot_prices['bid_prices'][i])
+        buy_carrots.append(buy_order)
+    print(f'Приманки-Морковки.  -----------------------------------')
+    print(f'Количество на сторону: {num_carrot}')
+    print(f'Объемы в Базовой валюте: {carrot_slices}')
+    print(f"Примерные Объемы в Котирующей валюте (обычно USDT): | "
+          f"МАКС: {round(max(carrot_slices['ask_slices'])*price_levels['ask_1'], step_volume)} | "
+          f"МИН: {round(min(carrot_slices['bid_slices'])*price_levels['bid_1'], step_volume)}")
+    print(f'Уровни Цен: {carrot_prices}')
+    print(f'--------------------------------------------------------')
 
-
-
+    # # Скинуть данные в Базу Данных
+    # # sleep(3)
+    return {'sell_carrots': sell_carrots, 'buy_carrots': buy_carrots}
 
 def main():
 
@@ -158,17 +205,23 @@ def main():
     amounts = get_amounts(price_levels, step_volume)
 
     # Ордера 1 Плиты
-    orders_1 = create_orders_1(exchange, price_levels, amounts)
+    # orders_1 = create_orders_1(exchange, price_levels, amounts)
 
     # Ордера 2 Плиты
 
     # Ордера Приманки
+    carrots = create_orders_carrot(exchange, price_levels, amounts, step_price, step_volume)
+
 
     # ---------------------------------------------------------------------------------------
     # Мониторинг
     print(f'Стартовая Цена: {start_price} | Шаг Цены: {step_price} | Шаг Объема: {step_volume}')
+    print(f'--------------------------------------------------------')
     print(f'Уровни Цен:\n{pd.DataFrame.from_dict(price_levels, orient="index").transpose()}')
+    print(f'--------------------------------------------------------')
     print(f'Объемы:\n{pd.DataFrame.from_dict(amounts, orient="index").transpose()}')
+    print(f'--------------------------------------------------------')
+    # print(f'Приманки:\n{carrots}', sep='\n')
 
 
 
