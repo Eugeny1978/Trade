@@ -1,8 +1,12 @@
+import asyncio
 import ccxt
 import json
 import pandas as pd
 import sqlite3 as sq
 from config_2slabs import *
+from time import sleep
+import multiprocessing as mp
+import random
 
 from data_bases.path_to_base import DATABASE
 
@@ -92,22 +96,44 @@ def get_price_levels(start_price, step_price):
     levels['bid_carrot'] = round(start_price - 0.01 * MIN_SPRED * start_price, step_price)
     return levels
 
-def get_amounts(step_volume):
+def get_amounts(price_levels, step_volume):
     check_part_volume()
     amounts = {}
     amounts['ask_1'] = round(0.01 * PART_1slab * VOLUME_BASE, step_volume)
     amounts['ask_2'] = round(0.01 * PART_2slab * VOLUME_BASE, step_volume)
     amounts['ask_carrot'] = VOLUME_BASE - amounts['ask_1'] - amounts['ask_2']
-
-    amounts['ask_1'] = round(0.01 * PART_1slab * VOLUME_QUOTE, step_volume)
-    # amounts['ask_2'] = round(0.01 * PART_2slab * VOLUME_BASE, step_volume)
-    # amounts['ask_carrot'] = VOLUME_BASE - amounts['ask_1'] - amounts['ask_2']
+    amounts['bid_1'] = round(0.01 * PART_1slab * VOLUME_QUOTE / price_levels['bid_1'], step_volume)
+    amounts['bid_2'] = round(0.01 * PART_2slab * VOLUME_QUOTE / price_levels['bid_2'], step_volume)
+    amounts['bid_carrot'] = round(0.01 * PART_carrot * VOLUME_QUOTE / price_levels['bid_carrot'], step_volume)
     return amounts
 
 def check_part_volume():
     if (PART_carrot + PART_1slab + PART_2slab) != 100:
         raise Exception(f'Неверно заданы Доли Используемых средств. | (PART_carrot + PART_1slab + PART_2slab) Должна = 100')
 
+def create_orders_1(exchange, price_levels, amounts):
+    sell_order = exchange.create_order(SYMBOL, type='limit', side='sell', amount=amounts['ask_1'], price=price_levels['ask_1'])
+    buy_order = exchange.create_order(SYMBOL, type='limit', side='buy', amount=amounts['bid_1'], price=price_levels['bid_1'])
+    # Скинуть данные в Базу Данных
+    # sleep(SLEEP_1slab)
+    return (sell_order, buy_order)
+
+def create_orders_2(exchange, price_levels, amounts):
+    sell_order = exchange.create_order(SYMBOL, type='limit', side='sell', amount=amounts['ask_2'], price=price_levels['ask_2'])
+    buy_order = exchange.create_order(SYMBOL, type='limit', side='buy', amount=amounts['bid_2'], price=price_levels['bid_2'])
+    # Скинуть данные в Базу Данных
+    # sleep(SLEEP_1slab)
+    return (sell_order, buy_order)
+
+def create_orders_carrot(exchange, price_levels, amounts):
+
+
+
+    sell_order = exchange.create_order(SYMBOL, type='limit', side='sell', amount=amounts['ask_2'], price=price_levels['ask_2'])
+    buy_order = exchange.create_order(SYMBOL, type='limit', side='buy', amount=amounts['bid_2'], price=price_levels['bid_2'])
+    # Скинуть данные в Базу Данных
+    # sleep(SLEEP_1slab)
+    return (sell_order, buy_order)
 
 
 
@@ -115,8 +141,10 @@ def check_part_volume():
 
 
 def main():
+
     # Инициализация.
     exchange = connect_exchange()
+
     # Проверка. Достаточно ли средств:
     check_enough_funds(exchange)
 
@@ -127,13 +155,22 @@ def main():
     price_levels = get_price_levels(start_price, step_price)
 
     # Объемы (суммарный для Приманки) Ордеров
-    amounts = get_amounts(step_volume)
+    amounts = get_amounts(price_levels, step_volume)
+
+    # Ордера 1 Плиты
+    orders_1 = create_orders_1(exchange, price_levels, amounts)
+
+    # Ордера 2 Плиты
+
+    # Ордера Приманки
 
     # ---------------------------------------------------------------------------------------
     # Мониторинг
     print(f'Стартовая Цена: {start_price} | Шаг Цены: {step_price} | Шаг Объема: {step_volume}')
     print(f'Уровни Цен:\n{pd.DataFrame.from_dict(price_levels, orient="index").transpose()}')
     print(f'Объемы:\n{pd.DataFrame.from_dict(amounts, orient="index").transpose()}')
+
+
 
 # ---- RUN -----------------------------------------------------------------------------------
 main()
