@@ -228,5 +228,34 @@ class BitTeam(): # Request
         self.data['result']['orders'] = data_orders
         self.data['result']['count'] = count
 
+    def fetch_my_trades(self, symbol=0, limit=10, offset=0, order=''):
+        """
+        Сделки за Последние 3 дня ? (тесты показали что вроде так - устанавливал лимит 100)
+        offset=х - смещение: не покажет первые Х сделок
+        pairId=0 - все пары # 24 - del_usdt
+        ccxt/tradesOfUser?limit=10&offset=0&order=<string>&pairId=<integer>
+        созданный мной в RequestAPI:
+        get_trades_of_user(self, limit=10, offset=0, order='', pairId=0):
+        ccxt:
+        fetch_my_trades(self, symbol: Optional[str] = None, since: Optional[int] = None, limit: Optional[int] = None, params={}):
+        """
+        # Необязательные Параметры
+        url_limit = '' if limit == 10 else f'limit={limit}'
+        url_offset = '' if not offset else f'&offset={offset}'
+        url_order = '' if not order else f'&order={order}'
+        if not symbol: url_pairId = ''
+        else:
+            pairId = self.__get_pairId_database(symbol)
+            url_pairId = f'&pairId={pairId}'
+
+        end_point = f'{self.base_url}/ccxt/tradesOfUser?' + url_limit + url_offset + url_order + url_pairId
+        responce = requests.get(url=end_point, auth=self.auth)
+
+        self.status = responce.status_code
+        self.data = responce.json()
+        return self.data
+
+
+
 # class AuthorizationException(Exception):
 #     print('Ошибка Авторизации. Задайте/Проверьте Публичный и Секретный АПИ Ключи')
