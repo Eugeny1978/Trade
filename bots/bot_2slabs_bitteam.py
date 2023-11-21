@@ -354,10 +354,12 @@ def main():
         i += 1
 
     match get_bot_status_sql():
-        case 'Pause':
-            pass
         case 'Stop':
             cancel_orders(exchange, name=None)
+        case 'Pause':
+            pass
+        case _:
+            pass
 
 # ---- RUN -----------------------------------------------------------------------------------
 main()
