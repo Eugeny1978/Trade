@@ -1,7 +1,7 @@
 import pandas as pd
 import sqlite3 as sq
 from typing import Literal                      # Создание Классов Перечислений
-from time import sleep
+from time import sleep, time
 import random
 import json
 # import ccxt
@@ -211,6 +211,63 @@ def create_orders_Level(exchange, price_levels, amounts, name:LevelType):
         print(error)
 
 
+def correct_num_orders_carrot(amounts, price_levels):
+    amount = amounts['ask_carrot'] * price_levels['ask_carrot']
+    slice = amount / NUM_carrots
+    if slice >= MIN_AMOUNT:
+        return NUM_carrots
+    else:
+        return int(amount / MIN_AMOUNT)
+
+def get_slices(num_carrot, amounts, step_volume):
+    slice = round(amounts['ask_carrot'] / num_carrot, step_volume)
+    ask_slices = []
+    bid_slices = []
+    for i in range(1, num_carrot):
+      ask_slices.append(round(random.uniform(0.8 * slice, 1.2 * slice), step_volume))
+      bid_slices.append(round(random.uniform(0.8 * slice, 1.2 * slice), step_volume))
+    ask_subsum = sum(ask_slices)
+    bid_subsum = sum(bid_slices)
+    ask_slices.append(round(amounts['ask_carrot'] - ask_subsum, step_volume))
+    bid_slices.append(round(amounts['ask_carrot'] - ask_subsum, step_volume))
+    return {'ask_slices': ask_slices, 'bid_slices': bid_slices}
+
+def get_carrot_prices(num_carrot, price_levels, step_price):
+    ask_prices = [price_levels['ask_carrot']]
+    bid_prices = [price_levels['bid_carrot']]
+    delta = (price_levels['ask_1'] - price_levels['ask_carrot']) / num_carrot
+    for i in range(1, num_carrot):
+        ask_delta = round(random.uniform(0.8 * delta, 1.2 * delta), step_price)
+        bid_delta = round(random.uniform(0.8 * delta, 1.2 * delta), step_price)
+        ask_prices.append(round(ask_prices[i-1] + ask_delta, step_price))
+        bid_prices.append(round(bid_prices[i-1] - bid_delta, step_price))
+    return {'ask_prices': ask_prices, 'bid_prices': bid_prices}
+
+def create_orders_carrot(exchange, price_levels, amounts, step_price, step_volume):
+    num_carrot = correct_num_orders_carrot(amounts, price_levels)
+    carrot_slices = get_slices(num_carrot, amounts, step_volume)
+    carrot_prices = get_carrot_prices(num_carrot, price_levels, step_price)
+
+    sell_carrots = []
+    buy_carrots = []
+    name = 'carrots'
+    for i in range(num_carrot):
+        sell_order = exchange.create_order(SYMBOL, type='limit', side='sell', amount=carrot_slices['ask_slices'][i], price=carrot_prices['ask_prices'][i])
+        sell_carrots.append(sell_order)
+        write_order_sql(sell_order, name) # Записываю Ордер в Базу Данных
+        buy_order = exchange.create_order(SYMBOL, type='limit', side='buy', amount=carrot_slices['bid_slices'][i], price=carrot_prices['bid_prices'][i])
+        buy_carrots.append(buy_order)
+        write_order_sql(buy_order, name) # Записываю Ордер в Базу Данных
+    print(f'Приманки-Морковки.  -------------------------------------------------')
+    print(f'Количество на сторону: {num_carrot}')
+    print(f'Объемы в Базовой валюте: {carrot_slices}')
+    print(f"Примерные Объемы в Котирующей валюте (обычно USDT): | "
+          f"МАКС: {round(max(carrot_slices['ask_slices'])*price_levels['ask_1'], step_volume)} | "
+          f"МИН: {round(min(carrot_slices['bid_slices'])*price_levels['bid_1'], step_volume)}")
+    print(f'Уровни Цен: {carrot_prices}')
+    print(f'---------------------------------------------------------------------')
+
+    return {'sell_carrots': sell_carrots, 'buy_carrots': buy_carrots}
 
 
 def main():
@@ -221,7 +278,7 @@ def main():
     # check_enough_funds(exchange) # Проверка. Достаточно ли Общих средств:
 
     # # while True:
-    # start_time = time()
+    start_time = time()
 
     # Стартовая Цена от которой будут определять уровни и Количество Знаков после Запятой для Цен и Объемов
     start_price, step_price, step_volume = get_params_symbol(exchange)
@@ -244,7 +301,7 @@ def main():
     for order in orders_1:
         print(f"id: {order['id']} | {order['symbol']} | {order['type']} | {order['side']} | amount : {order['quantity']} | price: {order['price']}")
     print(dividing_line)
-    # sleep(3)
+    sleep(SLEEP_Level)
 
     # Ордера 2 Плиты
     cancel_orders(exchange, 'slab_2')  # удаляю ордера из предыдущый итерации
@@ -253,28 +310,25 @@ def main():
     orders_2 = create_orders_Level(exchange, price_levels, amounts, name='slab_2')  # выставляю свежие ордера
     print(f'Выставлены Ордера 2-й уровень Плиты:')
     for order in orders_2:
-        print(
-            f"id: {order['id']} | {order['symbol']} | {order['type']} | {order['side']} | amount : {order['quantity']} | price: {order['price']}")
+        print(f"id: {order['id']} | {order['symbol']} | {order['type']} | {order['side']} | amount : {order['quantity']} | price: {order['price']}")
     print(dividing_line)
-    # sleep(3)
+    sleep(SLEEP_Level)
 
     # Ордера Приманки
     cancel_orders(exchange, 'carrots')  # удаляю ордера из предыдущый итерации
     sleep(1)  # Необходиа пауза, иначе Биржа не успевает дать актуальную инфу по балансу
     carrots = create_orders_carrot(exchange, price_levels, amounts, step_price, step_volume)
-    # sleep(2)
-    #
-    # # ---------------------------------------------------------------------------------------
-    # # Передвинуть перед выставлением Ордеров!
-    # # Мониторинг
+    print(f'Выставлены Ордера-Приманки:')
+    for order in carrots['sell_carrots']:
+        print(f"id: {order['id']} | {order['symbol']} | {order['type']} | {order['side']} | amount : {order['quantity']} | price: {order['price']}")
+    for order in carrots['buy_carrots']:
+        print(f"id: {order['id']} | {order['symbol']} | {order['type']} | {order['side']} | amount : {order['quantity']} | price: {order['price']}")
+    print(dividing_line)
+    sleep(SLEEP_Level)
 
-    # print(f'Выставлены Ордера-Приманки:')
-    # for order in carrots['sell_carrots']:
-    #     print(f"id: {order['id']} | {order['symbol']} | {order['type']} | {order['side']} | amount : {order['amount']} | price: {order['price']} | status: {order['status']}")
-    # for order in carrots['buy_carrots']:
-    #     print(f"id: {order['id']} | {order['symbol']} | {order['type']} | {order['side']} | amount : {order['amount']} | price: {order['price']} | status: {order['status']}")
-    # finish_time = time()
-    # print(f'Выполнено за: {start_time - finish_time} сек.')
+    # ---------------------------------------------------------------------------------------
+    finish_time = time()
+    print(f'Выполнено за: {start_time - finish_time} сек.')
 
 # ---- RUN -----------------------------------------------------------------------------------
 
