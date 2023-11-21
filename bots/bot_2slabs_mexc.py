@@ -262,14 +262,13 @@ def main():
     # Инициализация.
     exchange = connect_exchange()
     exchange.load_markets()
+    # Проверка. Достаточно ли Общих средств:
+    check_enough_funds(exchange)
 
     while True:
         start_time = time()
         # # Предварительно Удаляю Ранее выставленные Ордера
         # exchange.cancel_all_orders(SYMBOL)
-
-        # Проверка. Достаточно ли средств:
-        # check_enough_funds(exchange)
 
         # Стартовая Цена от которой будут определять уровни и Количество Знаков после Запятой для Цен и Объемов
         start_price, step_price, step_volume = get_params_symbol(exchange)
@@ -281,21 +280,25 @@ def main():
         amounts = get_amounts(price_levels, step_volume)
 
         # Ордера 1 Плиты
-        cancel_orders(exchange, 'slabe_1')
-        orders_1 = create_orders_1(exchange, price_levels, amounts)
+        cancel_orders(exchange, 'slabe_1') # удаляю ордера из предыдущый итерации
+        # check_enough_funds(exchange) # Проверка. Достаточно ли средств под эти Ордера: ПЕРЕДЕЛАТЬ!
+        orders_1 = create_orders_1(exchange, price_levels, amounts) # выставляю свежие ордера
         sleep(3)
 
         # Ордера 2 Плиты
         cancel_orders(exchange, 'slabe_2')
+        # check_enough_funds(exchange) # Проверка. Достаточно ли средств под эти Ордера: ПЕРЕДЕЛАТЬ!
         orders_2 = create_orders_2(exchange, price_levels, amounts)
         sleep(4)
 
         # Ордера Приманки
         cancel_orders(exchange, 'carrots')
+        # check_enough_funds(exchange) # Проверка. Достаточно ли средств под эти Ордера: ПЕРЕДЕЛАТЬ!
         carrots = create_orders_carrot(exchange, price_levels, amounts, step_price, step_volume)
         sleep(2)
 
         # ---------------------------------------------------------------------------------------
+        # Передвинуть перед выставлением Ордеров!
         # Мониторинг
         print(f'Стартовая Цена: {start_price} | Шаг Цены: {step_price} | Шаг Объема: {step_volume}')
         print(f'---------------------------------------------------------------------')
@@ -309,8 +312,7 @@ def main():
         print(f'---------------------------------------------------------------------')
         print(f'Выставлены Ордера 2-й уровень Плиты:')
         for order in orders_2:
-            print(
-                f"id: {order['id']} | {order['symbol']} | {order['type']} | {order['side']} | amount : {order['amount']} | price: {order['price']} | status: {order['status']}")
+            print(f"id: {order['id']} | {order['symbol']} | {order['type']} | {order['side']} | amount : {order['amount']} | price: {order['price']} | status: {order['status']}")
         print(f'---------------------------------------------------------------------')
         print(f'Выставлены Ордера-Приманки:')
         for order in carrots['sell_carrots']:
