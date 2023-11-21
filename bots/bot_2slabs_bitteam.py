@@ -16,7 +16,10 @@ pd.options.display.max_columns= 20 # Макс Кол-во Отображаемы
 pd.options.display.float_format = '{:.6f}'.format # Формат отображения Чисел float
 # pd.set_option('display.float_format', '{:.6f}'.format)
 dividing_line = '-------------------------------------------------------------------------------'
+double_line =   '==============================================================================='
 order_table = 'orders_2slabs_bitteam'
+bot_name = 'bot_2slabs_bitteam'
+status_table = 'BotStatuses'
 LevelType = Literal['slab_1', 'slab_2', 'carrots']
 PartType = Literal['slab_1', 'slab_2', 'carrots', 'total']
 
@@ -124,10 +127,13 @@ def write_order_sql(order, name:LevelType):
         curs.execute(f"""INSERT INTO {order_table} VALUES(?, ?, ?, ?, ?, ?, ?)""",
         (order['id'], order['symbol'], order['type'], order['side'], order['quantity'], order['price'], name))
 
-def get_id_orders_sql(name:LevelType):
+def get_id_orders_sql(name:LevelType=None):
     with sq.connect(DATABASE) as connect:
         curs = connect.cursor()
-        curs.execute(f"""SELECT id FROM {order_table} WHERE name LIKE ?""", (name,))
+        if name:
+            curs.execute(f"""SELECT id FROM {order_table} WHERE name LIKE ?""", (name,))
+        else:
+            curs.execute(f"""SELECT id FROM {order_table}""")
         ids = []
         for select in curs:
             ids.append(select[0])
@@ -138,6 +144,7 @@ def cancel_orders_exchange(exchange, name:LevelType):
     for id in id_orders:
         try:
             exchange.cancel_order(id=id)
+            sleep(1)
         except Exception as error:
             print(f'Нет Ордера с id: {id} | {error}')
 
@@ -210,7 +217,6 @@ def create_orders_Level(exchange, price_levels, amounts, name:LevelType):
     except Exception as error:
         print(error)
 
-
 def correct_num_orders_carrot(amounts, price_levels):
     ask_amount = amounts['ask_carrot'] * price_levels['ask_carrot']
     bid_amount = amounts['bid_carrot'] * price_levels['bid_carrot']
@@ -267,6 +273,7 @@ def create_orders_carrot(exchange, price_levels, amounts, step_price, step_volum
         buy_order['symbol'] = SYMBOL
         buy_carrots.append(buy_order)
         write_order_sql(buy_order, name) # Записываю Ордер в Базу Данных
+        sleep(1)
     print(f'Приманки-Морковки.  -------------------------------------------------')
     print(f'Количество на сторону: {num_carrot}')
     print(f'Объемы в Базовой валюте: {carrot_slices}')
@@ -278,6 +285,12 @@ def create_orders_carrot(exchange, price_levels, amounts, step_price, step_volum
 
     return {'sell_carrots': sell_carrots, 'buy_carrots': buy_carrots}
 
+def get_bot_status_sql():
+    with sq.connect(DATABASE) as connect:
+        curs = connect.cursor()
+        curs.execute(f"SELECT status FROM {status_table} WHERE bot LIKE '{bot_name}'")
+        return curs.fetchone()[0]
+
 def main():
 
     # Инициализация.
@@ -285,9 +298,11 @@ def main():
     print(f'Баланс Аккаунта:\n{get_balance(exchange)}\n{dividing_line}') # Баланс аккаунта
     check_enough_funds(exchange) # Проверка. Достаточно ли Общих средств:
 
-    while True:
+    i = 1
+    while get_bot_status_sql() == 'Run':
+        print(f'{double_line}\nЦИКЛ: {i}\n{double_line}')
         start_time = time()
-
+        # ---------------------------------------------------------------------------------------
         # Стартовая Цена от которой будут определять уровни и Количество Знаков после Запятой для Цен и Объемов
         start_price, step_price, step_volume = get_params_symbol(exchange)
         print(f'Старт-Цена: {start_price} | Шаг Цен: {step_price} | Шаг Объемов: {step_volume}\n{dividing_line}')
@@ -333,10 +348,16 @@ def main():
             print(f"id: {order['id']} | {order['symbol']} | {order['type']} | {order['side']} | amount : {order['quantity']} | price: {order['price']}")
         print(dividing_line)
         sleep(SLEEP_Level)
-
         # ---------------------------------------------------------------------------------------
         finish_time = time()
         print(f'Выполнено за: {start_time - finish_time} сек.')
+        i += 1
+
+    match get_bot_status_sql():
+        case 'Pause':
+            pass
+        case 'Stop':
+            cancel_orders(exchange, name=None)
 
 # ---- RUN -----------------------------------------------------------------------------------
 main()
