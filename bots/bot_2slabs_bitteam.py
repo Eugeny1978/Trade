@@ -1,14 +1,14 @@
-import pandas as pd
-import sqlite3 as sq
-from typing import Literal                      # Создание Классов Перечислений
-from time import sleep, time
-import random
+import pandas as pd             # Объекты DataFrame
+import sqlite3 as sq            # Работа с БД
+from typing import Literal      # Создание Классов Перечислений
+from time import sleep, time    # Создание технологических Пауз
+import random                   # Случайные значения
 import json
 # import ccxt
 # import multiprocessing as mp
 
-from connectors.bitteam import BitTeam
-from config_2slabs_bitteam import *
+from connectors.bitteam import BitTeam # Коннектор API к Бирже BitTeam
+from config_2slabs_bitteam import * # Конфигурационный Файл (Настраиваемые Параметры)
 from data_bases.path_to_base import DATABASE
 
 pd.options.display.width= None # Отображение Таблицы на весь Экран
@@ -212,7 +212,14 @@ def create_orders_Level(exchange, price_levels, amounts, name:LevelType):
 
 
 def correct_num_orders_carrot(amounts, price_levels):
-    amount = amounts['ask_carrot'] * price_levels['ask_carrot']
+    ask_amount = amounts['ask_carrot'] * price_levels['ask_carrot']
+    bid_amount = amounts['bid_carrot'] * price_levels['bid_carrot']
+    amount = min(ask_amount, bid_amount)
+    if amount < MIN_AMOUNT:
+        print('Внимание! Общее Кол-во Средств (для одного или всех buy/sell) для Ордеров Приманок меньше чем Заданый в конфигурации Мин. Объем Ордера')
+        print('Будет предпринята попытка выставить по одной Приманке на сторону с Указанным Объемом')
+        print(f'Кол-во Средств на Приманки. ASK: {ask_amount} | BID: {bid_amount} | Мин. Заданный Объем Ордера: {MIN_AMOUNT}')
+        return 1
     slice = amount / NUM_carrots
     if slice >= MIN_AMOUNT:
         return NUM_carrots
@@ -229,7 +236,7 @@ def get_slices(num_carrot, amounts, step_volume):
     ask_subsum = sum(ask_slices)
     bid_subsum = sum(bid_slices)
     ask_slices.append(round(amounts['ask_carrot'] - ask_subsum, step_volume))
-    bid_slices.append(round(amounts['ask_carrot'] - ask_subsum, step_volume))
+    bid_slices.append(round(amounts['bid_carrot'] - bid_subsum, step_volume))
     return {'ask_slices': ask_slices, 'bid_slices': bid_slices}
 
 def get_carrot_prices(num_carrot, price_levels, step_price):
@@ -252,10 +259,12 @@ def create_orders_carrot(exchange, price_levels, amounts, step_price, step_volum
     buy_carrots = []
     name = 'carrots'
     for i in range(num_carrot):
-        sell_order = exchange.create_order(SYMBOL, type='limit', side='sell', amount=carrot_slices['ask_slices'][i], price=carrot_prices['ask_prices'][i])
+        sell_order = exchange.create_order(SYMBOL, type='limit', side='sell', amount=carrot_slices['ask_slices'][i], price=carrot_prices['ask_prices'][i])['result']
+        sell_order['symbol'] = SYMBOL
         sell_carrots.append(sell_order)
         write_order_sql(sell_order, name) # Записываю Ордер в Базу Данных
-        buy_order = exchange.create_order(SYMBOL, type='limit', side='buy', amount=carrot_slices['bid_slices'][i], price=carrot_prices['bid_prices'][i])
+        buy_order = exchange.create_order(SYMBOL, type='limit', side='buy', amount=carrot_slices['bid_slices'][i], price=carrot_prices['bid_prices'][i])['result']
+        buy_order['symbol'] = SYMBOL
         buy_carrots.append(buy_order)
         write_order_sql(buy_order, name) # Записываю Ордер в Базу Данных
     print(f'Приманки-Морковки.  -------------------------------------------------')
@@ -269,67 +278,65 @@ def create_orders_carrot(exchange, price_levels, amounts, step_price, step_volum
 
     return {'sell_carrots': sell_carrots, 'buy_carrots': buy_carrots}
 
-
 def main():
 
     # Инициализация.
     exchange = connect_exchange() # Соединение с Биржей
     print(f'Баланс Аккаунта:\n{get_balance(exchange)}\n{dividing_line}') # Баланс аккаунта
-    # check_enough_funds(exchange) # Проверка. Достаточно ли Общих средств:
+    check_enough_funds(exchange) # Проверка. Достаточно ли Общих средств:
 
-    # # while True:
-    start_time = time()
+    while True:
+        start_time = time()
 
-    # Стартовая Цена от которой будут определять уровни и Количество Знаков после Запятой для Цен и Объемов
-    start_price, step_price, step_volume = get_params_symbol(exchange)
-    print(f'Старт-Цена: {start_price} | Шаг Цен: {step_price} | Шаг Объемов: {step_volume}\n{dividing_line}')
+        # Стартовая Цена от которой будут определять уровни и Количество Знаков после Запятой для Цен и Объемов
+        start_price, step_price, step_volume = get_params_symbol(exchange)
+        print(f'Старт-Цена: {start_price} | Шаг Цен: {step_price} | Шаг Объемов: {step_volume}\n{dividing_line}')
 
-    # Уровни Плит и Старта Приманки
-    price_levels = get_price_levels(start_price, step_price)
-    print(f'Уровни Цен:\n{pd.DataFrame.from_dict(price_levels, orient="index").transpose()}\n{dividing_line}')
+        # Уровни Плит и Старта Приманки
+        price_levels = get_price_levels(start_price, step_price)
+        print(f'Уровни Цен:\n{pd.DataFrame.from_dict(price_levels, orient="index").transpose()}\n{dividing_line}')
 
-    # Объемы (суммарный для Приманки) Ордеров
-    amounts = get_amounts(price_levels, step_volume)
-    print(f'Объемы:\n{pd.DataFrame.from_dict(amounts, orient="index").transpose()}\n{dividing_line}')
+        # Объемы (суммарный для Приманки) Ордеров
+        amounts = get_amounts(price_levels, step_volume)
+        print(f'Объемы:\n{pd.DataFrame.from_dict(amounts, orient="index").transpose()}\n{dividing_line}')
 
-    # Ордера 1 Плиты
-    cancel_orders(exchange, 'slab_1') # удаляю ордера из предыдущый итерации
-    sleep(1) # Необходиа пауза, иначе Биржа не успевает дать актуальную инфу по балансу
-    check_enough_funds(exchange, 'slab_1') # Проверка. Достаточно ли средств под эти Ордера:
-    orders_1 = create_orders_Level(exchange, price_levels, amounts, name='slab_1') # выставляю свежие ордера
-    print(f'Выставлены Ордера 1-й уровень Плиты:')
-    for order in orders_1:
-        print(f"id: {order['id']} | {order['symbol']} | {order['type']} | {order['side']} | amount : {order['quantity']} | price: {order['price']}")
-    print(dividing_line)
-    sleep(SLEEP_Level)
+        # Ордера 1 Плиты
+        cancel_orders(exchange, 'slab_1') # удаляю ордера из предыдущый итерации
+        sleep(1) # Необходиа пауза, иначе Биржа не успевает дать актуальную инфу по балансу
+        check_enough_funds(exchange, 'slab_1') # Проверка. Достаточно ли средств под эти Ордера:
+        orders_1 = create_orders_Level(exchange, price_levels, amounts, name='slab_1') # выставляю свежие ордера
+        print(f'Выставлены Ордера 1-й уровень Плиты:')
+        for order in orders_1:
+            print(f"id: {order['id']} | {order['symbol']} | {order['type']} | {order['side']} | amount : {order['quantity']} | price: {order['price']}")
+        print(dividing_line)
+        sleep(SLEEP_Level)
 
-    # Ордера 2 Плиты
-    cancel_orders(exchange, 'slab_2')  # удаляю ордера из предыдущый итерации
-    sleep(1)  # Необходиа пауза, иначе Биржа не успевает дать актуальную инфу по балансу
-    check_enough_funds(exchange, 'slab_2')  # Проверка. Достаточно ли средств под эти Ордера:
-    orders_2 = create_orders_Level(exchange, price_levels, amounts, name='slab_2')  # выставляю свежие ордера
-    print(f'Выставлены Ордера 2-й уровень Плиты:')
-    for order in orders_2:
-        print(f"id: {order['id']} | {order['symbol']} | {order['type']} | {order['side']} | amount : {order['quantity']} | price: {order['price']}")
-    print(dividing_line)
-    sleep(SLEEP_Level)
+        # Ордера 2 Плиты
+        cancel_orders(exchange, 'slab_2')  # удаляю ордера из предыдущый итерации
+        sleep(1)  # Необходиа пауза, иначе Биржа не успевает дать актуальную инфу по балансу
+        check_enough_funds(exchange, 'slab_2')  # Проверка. Достаточно ли средств под эти Ордера:
+        orders_2 = create_orders_Level(exchange, price_levels, amounts, name='slab_2')  # выставляю свежие ордера
+        print(f'Выставлены Ордера 2-й уровень Плиты:')
+        for order in orders_2:
+            print(f"id: {order['id']} | {order['symbol']} | {order['type']} | {order['side']} | amount : {order['quantity']} | price: {order['price']}")
+        print(dividing_line)
+        sleep(SLEEP_Level)
 
-    # Ордера Приманки
-    cancel_orders(exchange, 'carrots')  # удаляю ордера из предыдущый итерации
-    sleep(1)  # Необходиа пауза, иначе Биржа не успевает дать актуальную инфу по балансу
-    carrots = create_orders_carrot(exchange, price_levels, amounts, step_price, step_volume)
-    print(f'Выставлены Ордера-Приманки:')
-    for order in carrots['sell_carrots']:
-        print(f"id: {order['id']} | {order['symbol']} | {order['type']} | {order['side']} | amount : {order['quantity']} | price: {order['price']}")
-    for order in carrots['buy_carrots']:
-        print(f"id: {order['id']} | {order['symbol']} | {order['type']} | {order['side']} | amount : {order['quantity']} | price: {order['price']}")
-    print(dividing_line)
-    sleep(SLEEP_Level)
+        # Ордера Приманки
+        cancel_orders(exchange, 'carrots')  # удаляю ордера из предыдущый итерации
+        sleep(1)  # Необходиа пауза, иначе Биржа не успевает дать актуальную инфу по балансу
+        carrots = create_orders_carrot(exchange, price_levels, amounts, step_price, step_volume)
+        print(f'Выставлены Ордера-Приманки:')
+        for order in carrots['sell_carrots']:
+            print(f"id: {order['id']} | {order['symbol']} | {order['type']} | {order['side']} | amount : {order['quantity']} | price: {order['price']}")
+        for order in carrots['buy_carrots']:
+            print(f"id: {order['id']} | {order['symbol']} | {order['type']} | {order['side']} | amount : {order['quantity']} | price: {order['price']}")
+        print(dividing_line)
+        sleep(SLEEP_Level)
 
-    # ---------------------------------------------------------------------------------------
-    finish_time = time()
-    print(f'Выполнено за: {start_time - finish_time} сек.')
+        # ---------------------------------------------------------------------------------------
+        finish_time = time()
+        print(f'Выполнено за: {start_time - finish_time} сек.')
 
 # ---- RUN -----------------------------------------------------------------------------------
-
 main()

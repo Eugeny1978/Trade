@@ -39,9 +39,16 @@ def get_balance(exchange):
     return df_compact
 
 def main():
-    exchange = BitTeam()
-    order_book = exchange.fetch_order_book(SYMBOL)
-    print(order_book)
+
+    exchange = connect_exchange()
+    # order_book = exchange.fetch_order_book(SYMBOL)
+    # print(order_book)
+
+    # sell_order = exchange.create_order(SYMBOL,type='limit', side='sell', amount=200, price=0.0185)
+    # print(sell_order)
+
+    # buy_order = exchange.create_order(SYMBOL, type='limit', side='buy', amount=200, price=0.0165)
+    # print(buy_order)
 
 
 main()

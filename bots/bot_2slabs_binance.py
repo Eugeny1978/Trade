@@ -148,7 +148,7 @@ def get_slices(num_carrot, amounts, step_volume):
     ask_subsum = sum(ask_slices)
     bid_subsum = sum(bid_slices)
     ask_slices.append(round(amounts['ask_carrot'] - ask_subsum, step_volume))
-    bid_slices.append(round(amounts['ask_carrot'] - ask_subsum, step_volume))
+    bid_slices.append(round(amounts['bid_carrot'] - bid_subsum, step_volume))
     return {'ask_slices': ask_slices, 'bid_slices': bid_slices}
 
 def get_carrot_prices(num_carrot, price_levels, step_price):
