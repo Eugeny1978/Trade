@@ -6,7 +6,7 @@ from time import sleep
 import multiprocessing as mp
 import random
 
-from config_2slabs import *
+from config_2slabs_binance import *
 from data_bases.path_to_base import DATABASE
 
 pd.options.display.width= None # Отображение Таблицы на весь Экран
@@ -65,8 +65,11 @@ def get_id_orders_sql(name):
 def cancel_orders_exchange(exchange, name):
     id_orders = get_id_orders_sql(name)
     for id in id_orders:
-        exchange.cancel_order(id=id, symbol=SYMBOL)
-        print(f'Удален Ордер ID: {id}')
+        try:
+            exchange.cancel_order(id=id, symbol=SYMBOL)
+            print(f'Удален Ордер ID: {id}')
+        except Exception as error:
+            print(f'Нет Ордера с id: {id} | {error}')
 
 def synchronize_orders(exchange, name):
     # Ордера (ID) с необходимым именем в БД
@@ -100,6 +103,8 @@ def synchronize_orders(exchange, name):
             ids = ','.join(map(str, id_for_delete))
             curs.execute(f"DELETE FROM orders_2slabs WHERE id IN ({ids})")
 
+    return True
+
 def cancel_orders(exchange, name):
     sync = synchronize_orders(exchange, name)
     if not sync:
@@ -115,29 +120,20 @@ def main():
     # exchange.cancel_all_orders(SYMBOL)
     # cancel_orders(exchange, 'carrots')
 
-
-
-
-
     #
-    # balance = get_balance(exchange)
+    balance = get_balance(exchange)
     # closed_orders = exchange.fetch_closed_orders(SYMBOL)
     # canceled_orders = exchange.fetch_canceled_orders(SYMBOL)
-    # opened_orders = exchange.fetch_open_orders(SYMBOL)
+
     # all_orders = exchange.fetch_orders(SYMBOL)
     # # order_id = exchange.fetch_order(symbol=SYMBOL, id='')
 
     # my_trades = exchange.fetch_my_trades(SYMBOL) # мои сделки трейды
 
-    # order = exchange.create_order(SYMBOL, 'limit', 'sell', 0.1, 2100)
+    # order = exchange.create_order(SYMBOL, 'limit', 'sell', 0.07, 2200)
+    # opened_orders = exchange.fetch_open_orders(SYMBOL)
 
-
-
-
-
-
-
-    # print(balance)
+    print(balance)
     print('-------------------------------------')
     # print_json(closed_orders)
     # print_json(canceled_orders)
@@ -145,11 +141,6 @@ def main():
     # print_json(all_orders)
     # print_json(my_trades)
     # print_json(order)
-
-
-
-
-
 
 # ---- RUN -----------------------------------------------------------------------------------
 main()

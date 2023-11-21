@@ -1,13 +1,13 @@
-import asyncio
 import ccxt
-import json
 import pandas as pd
 import sqlite3 as sq
-from config_2slabs import *
 from time import sleep, time
-import multiprocessing as mp
 import random
+# import asyncio
+# import json
+# import multiprocessing as mp
 
+from config_2slabs_binance import *
 from data_bases.path_to_base import DATABASE
 
 def get_apikeys(account_name):
@@ -181,8 +181,11 @@ def get_id_orders_sql(name):
 def cancel_orders_exchange(exchange, name):
     id_orders = get_id_orders_sql(name)
     for id in id_orders:
-        exchange.cancel_order(id=id, symbol=SYMBOL)
-        print(f'Удален Ордер ID: {id}')
+        try:
+            exchange.cancel_order(id=id, symbol=SYMBOL)
+            print(f'Удален Ордер ID: {id}')
+        except Exception as error:
+            print(f'Нет Ордера с id: {id} | {error}')
 
 def synchronize_orders(exchange, name):
     # Ордера (ID) с необходимым именем в БД
@@ -193,12 +196,13 @@ def synchronize_orders(exchange, name):
 
     # Все Открытые Ордера (ID)
     opened_orders = exchange.fetch_open_orders(SYMBOL)
+
     opened_id_orders = []
     if not len(opened_orders):
         print(f'НЕТ ОТКРЫТЫХ ордеров')
     else:
         for order in opened_orders:
-            opened_id_orders.append(int(order['id']))
+            opened_id_orders.append((order['id'])) # int ?
     print(f'Список ордеров в БД: {sql_id_orders}')
     print(f'Список ОТКРЫТЫХ ордеров: {opened_id_orders}')
 
@@ -206,14 +210,18 @@ def synchronize_orders(exchange, name):
     id_for_delete = []
     for id in sql_id_orders:
         if id not in opened_id_orders:
-            id_for_delete.append(str(id))
+            id_for_delete.append(id)
 
     # Удаление Ордеров из БД
     if len(id_for_delete):
         with sq.connect(DATABASE) as connect:
             curs = connect.cursor()
-            ids = ','.join(map(str, id_for_delete))
+            # ids = ','.join(map(str, id_for_delete))
+            ids = '\', \''.join(id_for_delete)
+            ids = '\'' + ids + '\''
             curs.execute(f"DELETE FROM orders_2slabs WHERE id IN ({ids})")
+
+    return True
 
 def cancel_orders(exchange, name):
     sync = synchronize_orders(exchange, name)
@@ -307,7 +315,6 @@ def main():
         print(f"id: {order['id']} | {order['symbol']} | {order['type']} | {order['side']} | amount : {order['amount']} | price: {order['price']} | status: {order['status']}")
     finish_time = time()
     print(f'Выполнено за: {start_time - finish_time} сек.')
-
 
 # ---- RUN -----------------------------------------------------------------------------------
 # while True:
