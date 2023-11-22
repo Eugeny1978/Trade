@@ -1,5 +1,5 @@
 import pandas as pd             # Объекты DataFrame
-import sqlite3 as sq            # Работа с БД
+import sqlite3 as sq           # Работа с БД
 from typing import Literal      # Создание Классов Перечислений
 from time import sleep, time    # Создание технологических Пауз
 import random                   # Случайные значения
