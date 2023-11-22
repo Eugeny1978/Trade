@@ -239,31 +239,35 @@ def get_id_order_exchange(exchange):
         ids.append(order['id'])
     return ids
 
-def delete_old_id_sql(outdated_id:list):
+def delete_old_id_sql(old_ids:list):
     with sq.connect(DATABASE) as connect:
         curs = connect.cursor()
         # ids = ','.join(map(str, id_for_delete))
-        ids = '\', \''.join(outdated_id)
+        ids = '\', \''.join(old_ids)
         curs.execute(f"DELETE FROM {order_table} WHERE id IN ('{ids}')")
+    print(f'Из БД удалены Ордера: {old_ids}')
 
 def cancel_orders_exchange(exchange, name:LevelType):
     id_orders = get_id_orders_sql(name)
+    if not len(id_orders): return None
     for id in id_orders:
         try:
             exchange.cancel_order(id=id)
+            print(f'Из Биржи Удален Ордер: {id}')
             sleep(1)
         except Exception as error:
             print(f'Нет Ордера с id: {id} | {error}')
 
+
 def synchronize_orders(exchange, name:LevelType):
     sql_ids = get_id_orders_sql(name)
     exchange_ids = get_id_order_exchange(exchange)
-    old_id = []
+    old_ids = []
     for id in sql_ids:
         if id not in exchange_ids:
-            old_id.append(id)
-    if len(old_id):
-        delete_old_id_sql(old_id) # Удалить неактуальные
+            old_ids.append(id)
+    if len(old_ids):
+        delete_old_id_sql(old_ids) # Удалить неактуальные
 
 
 
@@ -274,7 +278,7 @@ def cancel_orders(exchange, name:LevelType):
     while len(get_id_orders_sql(name)):
         synchronize_orders(exchange, name)
         cancel_orders_exchange(exchange, name)
-        synchronize_orders(exchange, name)
+
 
 
 
