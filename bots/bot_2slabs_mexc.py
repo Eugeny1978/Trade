@@ -301,7 +301,7 @@ def main():
     # Инициализация.
     exchange = connect_exchange()  # Соединение с Биржей
     print(f'Баланс Аккаунта:\n{get_balance(exchange)}\n{dividing_line}')  # Баланс аккаунта
-    # check_enough_funds(exchange)  # Проверка. Достаточно ли Общих средств:
+    check_enough_funds(exchange)  # Проверка. Достаточно ли Общих средств:
 
     i = 1
     while get_bot_status_sql() == 'Run':
