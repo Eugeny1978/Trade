@@ -5,6 +5,9 @@ import sqlite3 as sq
 from time import sleep
 import multiprocessing as mp
 import random
+from typing import Literal, get_args  # Создание Классов Перечислений
+
+LevelType = Literal['slab_1', 'slab_2', 'carrots', None]
 
 from config_2slabs_mexc import *
 from data_bases.path_to_base import DATABASE
@@ -114,12 +117,14 @@ def cancel_orders(exchange, name):
 
 
 def main():
+    print(LevelType)
+    print(get_args(LevelType)[1])
 
-    # Инициализация.
-    exchange = connect_exchange()
-    balance = get_balance(exchange)
-    print(balance)
-    print('-------------------------------------')
+    # # Инициализация.
+    # exchange = connect_exchange()
+    # balance = get_balance(exchange)
+    # print(balance)
+    # print('-------------------------------------')
 
     # order = exchange.create_order(SYMBOL, 'limit', 'sell', 5, 3.0000)
     # opened_orders = exchange.fetch_open_orders(SYMBOL)
@@ -140,8 +145,8 @@ def main():
     # my_trades = exchange.fetch_my_trades(SYMBOL) # мои сделки трейды
 
     # order = exchange.create_order(SYMBOL, 'limit', 'sell', 0.07, 2200)
-    opened_orders = exchange.fetch_open_orders(SYMBOL)
-    print_json(opened_orders)
+    # opened_orders = exchange.fetch_open_orders(SYMBOL)
+    # print_json(opened_orders)
 
 
     # print_json(closed_orders)
@@ -150,6 +155,8 @@ def main():
     # print_json(all_orders)
     # print_json(my_trades)
     # print_json(order)
+
+
 
 # ---- RUN -----------------------------------------------------------------------------------
 main()

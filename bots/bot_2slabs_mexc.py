@@ -1,10 +1,10 @@
 import ccxt                     # Коннектор к Бирже
 import pandas as pd             # Объекты DataFrame
 import sqlite3 as sq            # Работа с БД
-from typing import Literal      # Создание Классов Перечислений
+from typing import Literal, get_args      # Создание Классов Перечислений
 from time import sleep, time    # Создание технологических Пауз
 import random                   # Случайные значения
-import json
+# import json
 
 from config_2slabs_mexc import *
 from data_bases.path_to_base import DATABASE
@@ -18,7 +18,7 @@ double_line =   '===============================================================
 order_table = 'orders_2slabs_mexc'
 bot_name = 'bot_2slabs_mexc'
 status_table = 'BotStatuses'
-LevelType = Literal['slab_1', 'slab_2', 'carrots']
+LevelType = Literal['slab_1', 'slab_2', 'carrots', None]
 PartType = Literal['slab_1', 'slab_2', 'carrots', 'total']
 
 def get_apikeys(account_name):
@@ -145,7 +145,7 @@ def write_order_sql(order, name:LevelType):
         curs.execute(f"INSERT INTO {order_table} VALUES(?, ?, ?, ?, ?, ?, ?)",
         (order['id'], order['symbol'], order['type'], order['side'], order['amount'], order['price'], name))
 
-def print_info_order(order) -> str:
+def print_info_order(order):
     print(f"id: {order['id']} | {order['symbol']} | {order['type']} | {order['side']} | amount : {order['amount']} | price: {order['price']}")
 
 def create_orders_Level(exchange, price_levels, amounts, name:LevelType):
