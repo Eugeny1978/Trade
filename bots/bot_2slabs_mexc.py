@@ -113,6 +113,171 @@ def get_params_symbol(exchange):
         raise Exception(error)
     return (start_price, step_price, step_volume)
 
+def get_price_levels(start_price, step_price):
+    levels = {}
+    levels['ask_2'] = round(start_price + 0.01 * LEVEL_2slab * start_price, step_price)
+    levels['ask_1'] = round(start_price + 0.01 * LEVEL_1slab * start_price, step_price)
+    levels['ask_carrot'] = round(start_price + 0.01 * MIN_SPRED * start_price, step_price)
+    levels['bid_carrot'] = round(start_price - 0.01 * MIN_SPRED * start_price, step_price)
+    levels['bid_1'] = round(start_price - 0.01 * LEVEL_1slab * start_price, step_price)
+    levels['bid_2'] = round(start_price - 0.01 * LEVEL_2slab * start_price, step_price)
+    return levels
+
+def get_amounts(price_levels, step_volume):
+    check_part_volume()
+    amounts = {}
+    amounts['ask_2'] = round(0.01 * PART_2slab * VOLUME_BASE, step_volume)
+    amounts['ask_1'] = round(0.01 * PART_1slab * VOLUME_BASE, step_volume)
+    amounts['ask_carrot'] = VOLUME_BASE - amounts['ask_1'] - amounts['ask_2']
+    amounts['bid_carrot'] = round(0.01 * PART_carrot * VOLUME_QUOTE / price_levels['bid_carrot'], step_volume)
+    amounts['bid_1'] = round(0.01 * PART_1slab * VOLUME_QUOTE / price_levels['bid_1'], step_volume)
+    amounts['bid_2'] = round(0.01 * PART_2slab * VOLUME_QUOTE / price_levels['bid_2'], step_volume)
+    return amounts
+
+def check_part_volume():
+    if (PART_carrot + PART_1slab + PART_2slab) != 100:
+        raise Exception(f'Неверно заданы Доли Используемых средств. | (PART_carrot + PART_1slab + PART_2slab) Должна = 100')
+
+def write_order_sql(order, name:LevelType):
+    with sq.connect(DATABASE) as connect:
+        curs = connect.cursor()
+        # "INSERT INTO orders VALUES(?, (SELECT name FROM pairs WHERE id=?), ?, ?, ?, ?)"
+        curs.execute(f"INSERT INTO {order_table} VALUES(?, ?, ?, ?, ?, ?, ?)",
+        (order['id'], order['symbol'], order['type'], order['side'], order['amount'], order['price'], name))
+
+
+# def cancel_orders_exchange(exchange, name:LevelType):
+#     id_orders = get_id_orders_sql(name)
+#     for id in id_orders:
+#         try:
+#             exchange.cancel_order(id=id)
+#             sleep(1)
+#         except Exception as error:
+#             print(f'Нет Ордера с id: {id} | {error}')
+#
+# def synchronize_orders(exchange, name:LevelType):
+#     # Ордера (ID) с необходимым именем в БД
+#     sql_id_orders = get_id_orders_sql(name)
+#     if not len(sql_id_orders):
+#         print(f'В БД НЕТ ордеров с именем: {name}')
+#         return None
+#
+#     # Все Открытые Ордера (ID)
+#     opened_orders = exchange.fetch_orders(SYMBOL)['result']
+#
+#     opened_id_orders = []
+#     if not opened_orders['count']:
+#         print(f'НЕТ ОТКРЫТЫХ ордеров')
+#     else:
+#         for order in opened_orders['orders']:
+#             opened_id_orders.append(str(order['id'])) # int ?
+#     print(f'Список ордеров в БД: {sql_id_orders}')
+#     print(f'Список ОТКРЫТЫХ ордеров: {opened_id_orders}')
+#
+#     # Формимрование Списка Ордеров на Удаление из БД (в Базе есть а на Бирже Отсутствуют (Исполнены или что-то другое))
+#     id_for_delete = []
+#     for id in sql_id_orders:
+#         if id not in opened_id_orders:
+#             id_for_delete.append(id)
+#
+#     # Удаление Ордеров из БД
+#     if len(id_for_delete):
+#         with sq.connect(DATABASE) as connect:
+#             curs = connect.cursor()
+#             # ids = ','.join(map(str, id_for_delete))
+#             ids = '\', \''.join(id_for_delete)
+#             ids = '\'' + ids + '\''
+#             curs.execute(f"DELETE FROM {order_table} WHERE id IN ({ids})")
+#
+#     return True
+#
+# def cancel_orders(exchange, name:LevelType):
+#     sync = synchronize_orders(exchange, name)
+#     if not sync:
+#         return None
+#     cancel_orders_exchange(exchange, name)
+#     synchronize_orders(exchange, name)
+
+def create_orders_Level(exchange, price_levels, amounts, name:LevelType):
+    match name:
+        case 'slab_1':
+            ask_amount = amounts['ask_1']
+            bid_amount = amounts['bid_1']
+            ask_price = price_levels['ask_1']
+            bid_price = price_levels['bid_1']
+        case 'slab_2':
+            ask_amount = amounts['ask_2']
+            bid_amount = amounts['bid_2']
+            ask_price = price_levels['ask_2']
+            bid_price = price_levels['bid_2']
+        case _:
+            pass
+    try:
+        sell_order = exchange.create_order(SYMBOL, type='limit', side='sell', amount=ask_amount, price=ask_price)
+        buy_order = exchange.create_order(SYMBOL, type='limit', side='buy', amount=bid_amount, price=bid_price)
+        # Скинуть данные в Базу Данных
+        write_order_sql(sell_order, name)
+        write_order_sql(buy_order, name)
+        return (sell_order, buy_order)
+    except Exception as error:
+        print(error)
+
+def get_id_orders_sql(name:LevelType=None) -> list:
+    with sq.connect(DATABASE) as connect:
+        curs = connect.cursor()
+        if name: curs.execute(f"SELECT id FROM {order_table} WHERE name LIKE '{name}'")
+        else: curs.execute(f"SELECT id FROM {order_table}")
+        ids = []
+        for select in curs:
+            ids.append(select[0])
+        return ids
+
+def get_id_order_exchange(exchange):
+    open_orders = exchange.fetch_open_orders(SYMBOL)
+    ids = []
+    for order in open_orders:
+        ids.append(order['id'])
+    return ids
+
+def delete_old_id_sql(outdated_id:list):
+    with sq.connect(DATABASE) as connect:
+        curs = connect.cursor()
+        # ids = ','.join(map(str, id_for_delete))
+        ids = '\', \''.join(outdated_id)
+        curs.execute(f"DELETE FROM {order_table} WHERE id IN ('{ids}')")
+
+def cancel_orders_exchange(exchange, name:LevelType):
+    id_orders = get_id_orders_sql(name)
+    for id in id_orders:
+        try:
+            exchange.cancel_order(id=id)
+            sleep(1)
+        except Exception as error:
+            print(f'Нет Ордера с id: {id} | {error}')
+
+def synchronize_orders(exchange, name:LevelType):
+    sql_ids = get_id_orders_sql(name)
+    exchange_ids = get_id_order_exchange(exchange)
+    old_id = []
+    for id in sql_ids:
+        if id not in exchange_ids:
+            old_id.append(id)
+    if len(old_id):
+        delete_old_id_sql(old_id) # Удалить неактуальные
+
+
+
+def cancel_orders(exchange, name:LevelType):
+    if not len(get_id_orders_sql(name)):
+        print(f'{name} | Ордера ранее не выставлялись')
+        return None
+    while len(get_id_orders_sql(name)):
+        synchronize_orders(exchange, name)
+        cancel_orders_exchange(exchange, name)
+        synchronize_orders(exchange, name)
+
+
+
 
 
 
@@ -132,25 +297,25 @@ def main():
     start_price, step_price, step_volume = get_params_symbol(exchange)
     print(f'Старт-Цена: {start_price} | Шаг Цен: {step_price} | Шаг Объемов: {step_volume}\n{dividing_line}')
 
-    # # Уровни Плит и Старта Приманки
-    # price_levels = get_price_levels(start_price, step_price)
-    # print(f'Уровни Цен:\n{pd.DataFrame.from_dict(price_levels, orient="index").transpose()}\n{dividing_line}')
-    #
-    # # Объемы (суммарный для Приманки) Ордеров
-    # amounts = get_amounts(price_levels, step_volume)
-    # print(f'Объемы:\n{pd.DataFrame.from_dict(amounts, orient="index").transpose()}\n{dividing_line}')
-    #
-    # # Ордера 1 Плиты
-    # cancel_orders(exchange, 'slab_1')  # удаляю ордера из предыдущый итерации
+    # Уровни Плит и Старта Приманки
+    price_levels = get_price_levels(start_price, step_price)
+    print(f'Уровни Цен:\n{pd.DataFrame.from_dict(price_levels, orient="index").transpose()}\n{dividing_line}')
+
+    # Объемы (суммарный для Приманки) Ордеров
+    amounts = get_amounts(price_levels, step_volume)
+    print(f'Объемы:\n{pd.DataFrame.from_dict(amounts, orient="index").transpose()}\n{dividing_line}')
+
+    # Ордера 1 Плиты
+    cancel_orders(exchange, 'slab_1')  # удаляю ордера из предыдущый итерации
     # sleep(1)  # Необходиа пауза, иначе Биржа не успевает дать актуальную инфу по балансу
-    # check_enough_funds(exchange, 'slab_1')  # Проверка. Достаточно ли средств под эти Ордера:
-    # orders_1 = create_orders_Level(exchange, price_levels, amounts, name='slab_1')  # выставляю свежие ордера
-    # print(f'Выставлены Ордера 1-й уровень Плиты:')
-    # for order in orders_1:
-    #     print(
-    #         f"id: {order['id']} | {order['symbol']} | {order['type']} | {order['side']} | amount : {order['quantity']} | price: {order['price']}")
-    # print(dividing_line)
-    # sleep(SLEEP_Level)
+    check_enough_funds(exchange, 'slab_1')  # Проверка. Достаточно ли средств под эти Ордера:
+    orders_1 = create_orders_Level(exchange, price_levels, amounts, name='slab_1')  # выставляю свежие ордера
+    print(f'Выставлены Ордера 1-й уровень Плиты:')
+    for order in orders_1:
+        print(
+            f"id: {order['id']} | {order['symbol']} | {order['type']} | {order['side']} | amount : {order['amount']} | price: {order['price']}")
+    print(dividing_line)
+    sleep(SLEEP_Level)
     #
     # # Ордера 2 Плиты
     # cancel_orders(exchange, 'slab_2')  # удаляю ордера из предыдущый итерации

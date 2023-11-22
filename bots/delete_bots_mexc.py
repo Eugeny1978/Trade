@@ -125,8 +125,9 @@ def main():
     # opened_orders = exchange.fetch_open_orders(SYMBOL)
     # print_json(opened_orders)
 
-    exchange.cancel_all_orders(SYMBOL)
+    # exchange.cancel_all_orders(SYMBOL)
     # cancel_orders(exchange, 'carrots')
+
 
     #
 
@@ -139,7 +140,8 @@ def main():
     # my_trades = exchange.fetch_my_trades(SYMBOL) # мои сделки трейды
 
     # order = exchange.create_order(SYMBOL, 'limit', 'sell', 0.07, 2200)
-    # opened_orders = exchange.fetch_open_orders(SYMBOL)
+    opened_orders = exchange.fetch_open_orders(SYMBOL)
+    print_json(opened_orders)
 
 
     # print_json(closed_orders)
