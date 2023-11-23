@@ -136,11 +136,11 @@ class BitTeam(): # Request
         responce = requests.post(url=end_point, auth=self.auth, data=body)
         self.status = responce.status_code
         self.data = responce.json()
-        if self.status == 200:
-            print(f'BitTeam. Создан Ордер ID: {self.data["result"]["id"]}')
-        else:
-            print(f'BitTeam_DONT_create_order_{symbol}_{side}_{type}_{body["amount"]}_{body["price"]}')
-            print(self.data)
+        # if self.status == 200:
+        #     print(f'BitTeam. Создан Ордер ID: {self.data["result"]["id"]}')
+        # else:
+        #     print(f'BitTeam_DONT_create_order_{symbol}_{side}_{type}_{body["amount"]}_{body["price"]}')
+        #     print(self.data)
         return self.data # Доработать ВЕРНУТЬ инфу для заполнения таблицы Ордеров в Базе Данных!
 
     def cancel_order(self, id: (int, str)):
@@ -154,10 +154,10 @@ class BitTeam(): # Request
         responce = requests.post(url=end_point, auth=self.auth, data=body)
         self.status = responce.status_code
         self.data = responce.json()
-        if self.status == 200:
-            print(f'BitTeam. Удален Ордер ID: {id}')
-        else:
-            print(f'BitTeam. Ордер ID: {id} - НЕ Удален')
+        # if self.status == 200:
+        #     print(f'BitTeam. Удален Ордер ID: {id}')
+        # else:
+        #     print(f'BitTeam. Ордер ID: {id} - НЕ Удален')
         return self.data # Подумай что он должен вернуть
 
     def cancel_all_orders(self, symbol=None):
@@ -195,7 +195,7 @@ class BitTeam(): # Request
         self.data = responce.json()
         return self.data
 
-    def fetch_orders(self, symbol=None, since=None, limit=10, type:UserOrderTypes='active', offset=0, order='', where=''):
+    def fetch_orders(self, symbol=None, since=None, limit=1000, type:UserOrderTypes='active', offset=0, order='', where=''):
         """
         fetch_orders(self, symbol: Optional[str] = None, since: Optional[int] = None, limit: Optional[int] = None, params={})
 

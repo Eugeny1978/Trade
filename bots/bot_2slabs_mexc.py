@@ -1,6 +1,6 @@
+import sqlite3 as sq            # Работа с БД
 import ccxt                     # Коннектор к Бирже
 import pandas as pd             # Объекты DataFrame
-import sqlite3 as sq            # Работа с БД
 from typing import Literal, get_args      # Создание Классов Перечислений
 from time import sleep, time    # Создание технологических Пауз
 import random                   # Случайные значения
@@ -183,7 +183,7 @@ def get_id_orders_sql(name:LevelType=None) -> list:
         return ids
 
 def get_id_order_exchange(exchange):
-    open_orders = exchange.fetch_open_orders(SYMBOL)
+    open_orders = exchange.fetch_open_orders(SYMBOL)  # , limit=1000 обрати внимание на лимиты!
     ids = []
     for order in open_orders:
         ids.append(order['id'])

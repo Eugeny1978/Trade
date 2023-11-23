@@ -1,9 +1,9 @@
-import pandas as pd             # Объекты DataFrame
 import sqlite3 as sq           # Работа с БД
+import pandas as pd             # Объекты DataFrame
 from typing import Literal      # Создание Классов Перечислений
 from time import sleep, time    # Создание технологических Пауз
 import random                   # Случайные значения
-import json
+# import json
 # import ccxt
 # import multiprocessing as mp
 
@@ -14,8 +14,8 @@ from data_bases.path_to_base import DATABASE
 pd.options.display.width= None # Отображение Таблицы на весь Экран
 pd.options.display.max_columns= 20 # Макс Кол-во Отображаемых Колонок
 pd.options.display.float_format = '{:.6f}'.format # Формат отображения Чисел float
-dividing_line = '-------------------------------------------------------------------------------'
-double_line =   '==============================================================================='
+dividing_line = '-------------------------------------------------------------------------------------'
+double_line =   '====================================================================================='
 order_table = 'orders_2slabs_bitteam'
 bot_name = 'bot_2slabs_bitteam'
 status_table = 'BotStatuses'
@@ -203,10 +203,10 @@ def get_id_orders_sql(name:LevelType=None) -> list:
         return ids
 
 def get_id_order_exchange(exchange):
-    open_orders = exchange.fetch_orders(SYMBOL)['result']
+    open_orders = exchange.fetch_orders(SYMBOL)['result']['orders'] # limit=1000 обрати внимание на лимиты (в коннекторе выставил по умолчанию 1000!
     ids = []
     for order in open_orders:
-        ids.append(order['id'])
+        ids.append(str(order['id'])) # тк биржа возращает id в виде Числа
     return ids
 
 def delete_old_orders_sql(old_ids:list):
