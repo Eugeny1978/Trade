@@ -316,7 +316,7 @@ def main():
     # Инициализация.
     exchange = connect_exchange() # Соединение с Биржей
     print(f'Баланс Аккаунта:\n{get_balance(exchange)}\n{dividing_line}') # Баланс аккаунта
-    check_enough_funds(exchange) # Проверка. Достаточно ли Общих средств:
+    # check_enough_funds(exchange) # Проверка. Достаточно ли Общих средств:
 
     i = 1
     while get_bot_status_sql() == 'Run':
@@ -369,12 +369,13 @@ def main():
         print(dividing_line)
         sleep(SLEEP_Level)
         # ---------------------------------------------------------------------------------------
+        sleep(SLEEP_LOOP)
         finish_time = time()
         print(f'Выполнено за: {start_time - finish_time} сек.')
         i += 1
 
         # Жду Сделок для корректировки Всего Пакета Ордеров
-        while not there_trades(exchange):
+        while not there_trades(exchange) and get_bot_status_sql() == 'Run':
             sleep(SLEEP_LOOP)
 
     match get_bot_status_sql():
