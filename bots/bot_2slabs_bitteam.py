@@ -1,7 +1,7 @@
 import sqlite3 as sq           # Работа с БД
 import pandas as pd             # Объекты DataFrame
 from typing import Literal      # Создание Классов Перечислений
-from time import sleep, time    # Создание технологических Пауз
+from time import sleep, time, localtime, strftime    # Создание технологических Пауз
 import random                   # Случайные значения
 # import json
 # import ccxt
@@ -126,72 +126,6 @@ def write_order_sql(order, name:LevelType):
         curs.execute(f"""INSERT INTO {order_table} VALUES(?, ?, ?, ?, ?, ?, ?)""",
         (order['id'], order['symbol'], order['type'], order['side'], order['quantity'], order['price'], name))
 
-# def get_id_orders_sql(name:LevelType=None):
-#     with sq.connect(DATABASE) as connect:
-#         curs = connect.cursor()
-#         if name:
-#             curs.execute(f"""SELECT id FROM {order_table} WHERE name LIKE ?""", (name,))
-#         else:
-#             curs.execute(f"""SELECT id FROM {order_table}""")
-#         ids = []
-#         for select in curs:
-#             ids.append(select[0])
-#         return ids
-#
-# def cancel_orders_exchange(exchange, name:LevelType):
-#     id_orders = get_id_orders_sql(name)
-#     for id in id_orders:
-#         try:
-#             exchange.cancel_order(id=id)
-#             sleep(1)
-#         except Exception as error:
-#             print(f'Нет Ордера с id: {id} | {error}')
-#
-# def synchronize_orders(exchange, name:LevelType):
-#     # Ордера (ID) с необходимым именем в БД
-#     sql_id_orders = get_id_orders_sql(name)
-#     if not len(sql_id_orders):
-#         print(f'В БД НЕТ ордеров с именем: {name}')
-#         return None
-#
-#     # Все Открытые Ордера (ID)
-#     opened_orders = exchange.fetch_orders(SYMBOL)['result']
-#
-#     opened_id_orders = []
-#     if not opened_orders['count']:
-#         print(f'НЕТ ОТКРЫТЫХ ордеров')
-#     else:
-#         for order in opened_orders['orders']:
-#             opened_id_orders.append(str(order['id'])) # int ?
-#     print(f'Список ордеров в БД: {sql_id_orders}')
-#     print(f'Список ОТКРЫТЫХ ордеров: {opened_id_orders}')
-#
-#     # Формимрование Списка Ордеров на Удаление из БД (в Базе есть а на Бирже Отсутствуют (Исполнены или что-то другое))
-#     id_for_delete = []
-#     for id in sql_id_orders:
-#         if id not in opened_id_orders:
-#             id_for_delete.append(id)
-#
-#     # Удаление Ордеров из БД
-#     if len(id_for_delete):
-#         with sq.connect(DATABASE) as connect:
-#             curs = connect.cursor()
-#             # ids = ','.join(map(str, id_for_delete))
-#             ids = '\', \''.join(id_for_delete)
-#             ids = '\'' + ids + '\''
-#             curs.execute(f"DELETE FROM {order_table} WHERE id IN ({ids})")
-#
-#     return True
-#
-# def cancel_orders(exchange, name:LevelType):
-#     sync = synchronize_orders(exchange, name)
-#     if not sync:
-#         return None
-#     cancel_orders_exchange(exchange, name)
-#     synchronize_orders(exchange, name)
-
-# ---------------------------------------------------------------------------------------------
-
 def get_id_orders_sql(name:LevelType=None) -> list:
     with sq.connect(DATABASE) as connect:
         curs = connect.cursor()
@@ -203,10 +137,11 @@ def get_id_orders_sql(name:LevelType=None) -> list:
         return ids
 
 def get_id_order_exchange(exchange):
-    open_orders = exchange.fetch_orders(SYMBOL)['result']['orders'] # limit=1000 обрати внимание на лимиты (в коннекторе выставил по умолчанию 1000!
+    data = exchange.fetch_orders(SYMBOL)['result'] # limit=1000 обрати внимание на лимиты (в коннекторе выставил по умолчанию 1000!
     ids = []
-    for order in open_orders:
-        ids.append(str(order['id'])) # тк биржа возращает id в виде Числа
+    if data['count'] > 0:
+        for order in data['orders']:
+            ids.append(str(order['id'])) # тк биржа возращает id в виде Числа
     return ids
 
 def delete_old_orders_sql(old_ids:list):
@@ -248,8 +183,6 @@ def cancel_orders(exchange, name:LevelType):
 
 def print_info_order(order):
     print(f"id: {order['id']} | {order['symbol']} | {order['type']} | {order['side']} | amount : {order['quantity']} | price: {order['price']}")
-
-# --------------------------------------------------------------------------------------------------------
 
 def create_orders_Level(exchange, price_levels, amounts, name:LevelType):
     match name:
@@ -351,6 +284,33 @@ def get_bot_status_sql():
         curs.execute(f"SELECT status FROM {status_table} WHERE bot LIKE '{bot_name}'")
         return curs.fetchone()[0]
 
+def get_trade_ids(exchange):
+    trades = exchange.fetch_my_trades(SYMBOL, limit=30)['result']
+    trade_ids = []
+    if trades['count'] > 0:
+        for trade in trades['trades']:
+            trade_ids.append(str(trade['makerOrderId']))
+    return trade_ids
+
+def get_local_time():
+    t = localtime()
+    current_time = strftime("%H:%M:%S", t)
+    return current_time
+
+def there_trades(exchange):
+    trade_ids = get_trade_ids(exchange)
+    if not len(trade_ids):
+        print(f'Сделок не было. | {get_local_time()}')
+        return False
+    orders_ids = get_id_orders_sql()
+    for id in trade_ids:
+        if id in orders_ids:
+            print(f'Сделки по Ордерам БЫЛИ. | {get_local_time()}')
+            return True
+    print(f'Сделок по Ордерам не было. | {get_local_time()}')
+    return False
+
+
 def main():
 
     # Инициализация.
@@ -412,6 +372,10 @@ def main():
         finish_time = time()
         print(f'Выполнено за: {start_time - finish_time} сек.')
         i += 1
+
+        # Жду Сделок для корректировки Всего Пакета Ордеров
+        while not there_trades(exchange):
+            sleep(SLEEP_LOOP)
 
     match get_bot_status_sql():
         case 'Stop':

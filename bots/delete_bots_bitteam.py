@@ -1,6 +1,7 @@
 import pandas as pd
+import ccxt
 import sqlite3 as sq
-from time import sleep
+from time import sleep, time, localtime, strftime
 import random
 import json
 # import ccxt
@@ -38,17 +39,53 @@ def get_balance(exchange):
     df_compact = df_0.loc[:, (df_0 != '0').any(axis=0)]  # если числа в виде строк
     return df_compact
 
+def get_trade_ids(exchange):
+    trades = exchange.fetch_my_trades(SYMBOL)['result'] # "makerOrderId": 107007160
+    trade_ids = []
+    if trades['count'] > 0:
+        for trade in trades['trades']:
+            trade_ids.append(str(trade['makerOrderId']))
+    return trade_ids
+
+
 def main():
 
     exchange = connect_exchange()
+    # balance = get_balance(exchange)
+    # print(balance)
+    # orders = exchange.fetch_orders(SYMBOL)
+    # print(json.dumps(orders))
     # order_book = exchange.fetch_order_book(SYMBOL)
     # print(order_book)
 
-    # sell_order = exchange.create_order(SYMBOL,type='limit', side='sell', amount=200, price=0.0185)
-    # print(sell_order)
+    # # Нельзя списком
+    # # {"message": "\"id\" must be a string", "path": ["id"], "type": "string.base", "context": {"label": "id", "value": ["106924207", "106924184"], "key": "id"}}
+    # cancel = exchange.cancel_order(id=['106924207', '106924184'])
+    # print(json.dumps(cancel))
+    # orders = exchange.fetch_orders(SYMBOL)['result']['orders']
+    # print(orders)
+    # start = time()
+    # for order in orders:
+    #     exchange.cancel_order(id=order['id'])
+    # print(f'Прошло времени {time() - start} сек.')
 
-    # buy_order = exchange.create_order(SYMBOL, type='limit', side='buy', amount=200, price=0.0165)
+    # sell_order = exchange.create_order(SYMBOL,type='limit', side='sell', amount=200, price=0.0185)
+    # print(sell_order)M
+    #     # buy_order = exchange.create_order(SYBOL, type='limit', side='buy', amount=200, price=0.0165)
     # print(buy_order)
+
+    # print(get_trade_ids(exchange))
+    t = localtime()
+    current_time = strftime("%H:%M:%S", t)
+    print(current_time)
+
+
+
+
+
+
+    # ccxt.binance.fetch_my_trades()
+
 
 
 main()
