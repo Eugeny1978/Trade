@@ -66,11 +66,11 @@ def main():
     orders_exchange = exchange.fetch_orders(SYMBOL)
     print_json(orders_exchange)
 
-# main()
+main()
 
 def main_buy():
     exchange = connect_exchange()
     price = 0.016003
     exchange.create_order(SYMBOL, type='limit', side='buy', amount=round(28650/price, 6), price=price)
 
-main_buy()
+# main_buy()
