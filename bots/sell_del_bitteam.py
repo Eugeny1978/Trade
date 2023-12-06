@@ -11,8 +11,8 @@ SYMBOL = 'DEL/USDT'
 pd.options.display.width= None # Отображение Таблицы на весь Экран
 pd.options.display.max_columns= 20 # Макс Кол-во Отображаемых Колонок
 div_line = '-------------------------------------------------------------------------------------'
-VOLUME = 1000 # 150000
-NUM_SLISES = 3 # 50
+VOLUME = 80000 # 150000
+NUM_SLISES = 150 # 50
 START_PRICE = 0.022 # 0.023
 PRICE_STEP = 0.000010 # ?
 AMOUNT_ACCURACY = 6
@@ -66,4 +66,11 @@ def main():
     orders_exchange = exchange.fetch_orders(SYMBOL)
     print_json(orders_exchange)
 
-main()
+# main()
+
+def main_buy():
+    exchange = connect_exchange()
+    price = 0.016003
+    exchange.create_order(SYMBOL, type='limit', side='buy', amount=round(28650/price, 6), price=price)
+
+main_buy()
