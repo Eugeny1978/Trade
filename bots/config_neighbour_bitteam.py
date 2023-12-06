@@ -1,4 +1,4 @@
-ACCOUNT = 'Luchnik_Bitteam' # 'Constantin_BitTeam'  #  # Имя Аккаунта в Базе Данных
+ACCOUNT = 'Constantin_BitTeam' # 'Luchnik_Bitteam'  #  # Имя Аккаунта в Базе Данных
 
 SYMBOL = 'DEL/USDT'     # Торгуемая Пара
 VOLUME_BASE = 2900      # Количество исользуемых Средств Базовой Валюты (в абс. значениях)

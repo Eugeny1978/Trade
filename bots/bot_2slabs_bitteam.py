@@ -211,13 +211,15 @@ def create_orders_Level(exchange, price_levels, amounts, name:LevelType):
         print(error)
 
 def correct_num_orders_carrot(amounts, price_levels):
-    ask_amount = amounts['ask_carrot'] * price_levels['ask_carrot']
-    bid_amount = amounts['bid_carrot'] * price_levels['bid_carrot']
+    # с учетом минимальнеого коэф при случайном распределении
+    min_random_rate = 0.8
+    ask_amount = min_random_rate * amounts['ask_carrot'] * price_levels['ask_carrot']
+    bid_amount = min_random_rate * amounts['bid_carrot'] * price_levels['bid_carrot']
     amount = min(ask_amount, bid_amount)
     if amount < MIN_AMOUNT:
         print('Внимание! Общее Кол-во Средств (для одного или всех buy/sell) для Ордеров Приманок меньше чем Заданый в конфигурации Мин. Объем Ордера')
         print('Будет предпринята попытка выставить по одной Приманке на сторону с Указанным Объемом')
-        print(f'Кол-во Средств на Приманки. ASK: {ask_amount} | BID: {bid_amount} | Мин. Заданный Объем Ордера: {MIN_AMOUNT}')
+        print(f'Кол-во Средств на Приманки. ASK: {ask_amount/min_random_rate} | BID: {bid_amount/min_random_rate} | Мин. Заданный Объем Ордера: {MIN_AMOUNT}')
         return 1
     slice = amount / NUM_carrots
     if slice >= MIN_AMOUNT:
@@ -226,12 +228,13 @@ def correct_num_orders_carrot(amounts, price_levels):
         return int(amount / MIN_AMOUNT)
 
 def get_slices(num_carrot, amounts, step_volume):
-    slice = round(amounts['ask_carrot'] / num_carrot, step_volume)
+    ask_slice = round(amounts['ask_carrot'] / num_carrot, step_volume)
+    bid_slice = round(amounts['bid_carrot'] / num_carrot, step_volume)
     ask_slices = []
     bid_slices = []
     for i in range(1, num_carrot):
-      ask_slices.append(round(random.uniform(0.8 * slice, 1.2 * slice), step_volume))
-      bid_slices.append(round(random.uniform(0.8 * slice, 1.2 * slice), step_volume))
+      ask_slices.append(round(random.uniform(0.8 * ask_slice, 1.2 * ask_slice), step_volume))
+      bid_slices.append(round(random.uniform(0.8 * bid_slice, 1.2 * bid_slice), step_volume))
     ask_subsum = sum(ask_slices)
     bid_subsum = sum(bid_slices)
     ask_slices.append(round(amounts['ask_carrot'] - ask_subsum, step_volume))
@@ -258,14 +261,18 @@ def create_orders_carrot(exchange, price_levels, amounts, step_price, step_volum
     buy_carrots = []
     name = 'carrots'
     for i in range(num_carrot):
-        sell_order = exchange.create_order(SYMBOL, type='limit', side='sell', amount=carrot_slices['ask_slices'][i], price=carrot_prices['ask_prices'][i])['result']
-        sell_order['symbol'] = SYMBOL
-        sell_carrots.append(sell_order)
-        write_order_sql(sell_order, name) # Записываю Ордер в Базу Данных
-        buy_order = exchange.create_order(SYMBOL, type='limit', side='buy', amount=carrot_slices['bid_slices'][i], price=carrot_prices['bid_prices'][i])['result']
-        buy_order['symbol'] = SYMBOL
-        buy_carrots.append(buy_order)
-        write_order_sql(buy_order, name) # Записываю Ордер в Базу Данных
+        try:
+            sell_order = exchange.create_order(SYMBOL, type='limit', side='sell', amount=carrot_slices['ask_slices'][i], price=carrot_prices['ask_prices'][i])['result']
+            sell_order['symbol'] = SYMBOL
+            sell_carrots.append(sell_order)
+            write_order_sql(sell_order, name) # Записываю Ордер в Базу Данных
+        except: pass
+        try:
+            buy_order = exchange.create_order(SYMBOL, type='limit', side='buy', amount=carrot_slices['bid_slices'][i], price=carrot_prices['bid_prices'][i])['result']
+            buy_order['symbol'] = SYMBOL
+            buy_carrots.append(buy_order)
+            write_order_sql(buy_order, name) # Записываю Ордер в Базу Данных
+        except: pass
         sleep(1)
     print(f'Приманки-Морковки.  -------------------------------------------------')
     print(f'Количество на сторону: {num_carrot}')

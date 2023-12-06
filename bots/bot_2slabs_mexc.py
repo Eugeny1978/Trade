@@ -2,11 +2,11 @@ import sqlite3 as sq            # Работа с БД
 import ccxt                     # Коннектор к Бирже
 import pandas as pd             # Объекты DataFrame
 from typing import Literal, get_args      # Создание Классов Перечислений
-from time import sleep, time    # Создание технологических Пауз
+from time import sleep, time, localtime, strftime    # Создание технологических Пауз
 import random                   # Случайные значения
 # import json
 
-from config_2slabs_mexc import *
+from config_2slabs_mexc import * # Конфигурационный Файл (Настраиваемые Параметры)
 from data_bases.path_to_base import DATABASE
 
 pd.options.display.width= None # Отображение Таблицы на весь Экран
@@ -226,7 +226,7 @@ def cancel_orders(exchange, name:LevelType):
         synchronize_orders(exchange, name)
         cancel_orders_exchange(exchange, name)
 
-def correct_num_orders_carrot(amounts, price_levels):
+def correct_num_orders_carrot_old(amounts, price_levels):
     ask_amount = amounts['ask_carrot'] * price_levels['ask_carrot']
     bid_amount = amounts['bid_carrot'] * price_levels['bid_carrot']
     amount = min(ask_amount, bid_amount)
@@ -241,13 +241,32 @@ def correct_num_orders_carrot(amounts, price_levels):
     else:
         return int(amount / MIN_AMOUNT)
 
+def correct_num_orders_carrot(amounts, price_levels):
+    # с учетом минимальнеого коэф при случайном распределении
+    min_random_rate = 0.8
+    ask_amount = min_random_rate * amounts['ask_carrot'] * price_levels['ask_carrot']
+    bid_amount = min_random_rate * amounts['bid_carrot'] * price_levels['bid_carrot']
+    amount = min(ask_amount, bid_amount)
+    if amount < MIN_AMOUNT:
+        print('Внимание! Общее Кол-во Средств (для одного или всех buy/sell) для Ордеров Приманок меньше чем Заданый в конфигурации Мин. Объем Ордера')
+        print('Будет предпринята попытка выставить по одной Приманке на сторону с Указанным Объемом')
+        print(f'Кол-во Средств на Приманки. ASK: {ask_amount/min_random_rate} | BID: {bid_amount/min_random_rate} | Мин. Заданный Объем Ордера: {MIN_AMOUNT}')
+        return 1
+    slice = amount / NUM_carrots
+    if slice >= MIN_AMOUNT:
+        return NUM_carrots
+    else:
+        return int(amount / MIN_AMOUNT)
+
+
 def get_slices(num_carrot, amounts, step_volume):
-    slice = round(amounts['ask_carrot'] / num_carrot, step_volume)
+    ask_slice = round(amounts['ask_carrot'] / num_carrot, step_volume)
+    bid_slice = round(amounts['bid_carrot'] / num_carrot, step_volume)
     ask_slices = []
     bid_slices = []
     for i in range(1, num_carrot):
-      ask_slices.append(round(random.uniform(0.8 * slice, 1.2 * slice), step_volume))
-      bid_slices.append(round(random.uniform(0.8 * slice, 1.2 * slice), step_volume))
+      ask_slices.append(round(random.uniform(0.8 * ask_slice, 1.2 * ask_slice), step_volume))
+      bid_slices.append(round(random.uniform(0.8 * bid_slice, 1.2 * bid_slice), step_volume))
     ask_subsum = sum(ask_slices)
     bid_subsum = sum(bid_slices)
     ask_slices.append(round(amounts['ask_carrot'] - ask_subsum, step_volume))
@@ -274,12 +293,16 @@ def create_orders_carrot(exchange, price_levels, amounts, step_price, step_volum
     buy_carrots = []
     name = 'carrots'
     for i in range(num_carrot):
-        sell_order = exchange.create_order(SYMBOL, type='limit', side='sell', amount=carrot_slices['ask_slices'][i], price=carrot_prices['ask_prices'][i])
-        sell_carrots.append(sell_order)
-        write_order_sql(sell_order, name) # Записываю Ордер в Базу Данных
-        buy_order = exchange.create_order(SYMBOL, type='limit', side='buy', amount=carrot_slices['bid_slices'][i], price=carrot_prices['bid_prices'][i])
-        buy_carrots.append(buy_order)
-        write_order_sql(buy_order, name) # Записываю Ордер в Базу Данных
+        try:
+            sell_order = exchange.create_order(SYMBOL, type='limit', side='sell', amount=carrot_slices['ask_slices'][i], price=carrot_prices['ask_prices'][i])
+            sell_carrots.append(sell_order)
+            write_order_sql(sell_order, name) # Записываю Ордер в Базу Данных
+        except: pass
+        try:
+            buy_order = exchange.create_order(SYMBOL, type='limit', side='buy', amount=carrot_slices['bid_slices'][i], price=carrot_prices['bid_prices'][i])
+            buy_carrots.append(buy_order)
+            write_order_sql(buy_order, name) # Записываю Ордер в Базу Данных
+        except: pass
         sleep(1)
     print(f'Приманки-Морковки.  -------------------------------------------------')
     print(f'Количество на сторону: {num_carrot}')
@@ -297,18 +320,43 @@ def get_bot_status_sql():
         curs.execute(f"SELECT status FROM {status_table} WHERE bot LIKE '{bot_name}'")
         return curs.fetchone()[0]
 
+def get_trade_ids(exchange):
+    trades = exchange.fetch_my_trades(SYMBOL, limit=100) #
+    trade_ids = []
+    if len(trades) > 0:
+        for trade in trades:
+            trade_ids.append(trade['order'])
+    return list(set(trade_ids)) # тк один ордер может исполниться несколькими сделками
+
+def get_local_time():
+    t = localtime()
+    current_time = strftime("%H:%M:%S", t)
+    return current_time
+
+def there_trades(exchange):
+    trade_ids = get_trade_ids(exchange)
+    if not len(trade_ids):
+        print(f'Сделок не было. | {get_local_time()}')
+        return False
+    orders_ids = get_id_orders_sql()
+    for id in trade_ids:
+        if id in orders_ids:
+            print(f'Сделки по Ордерам БЫЛИ. | {get_local_time()}')
+            return True
+    print(f'Сделок по Ордерам не было. | {get_local_time()}')
+    return False
+
 def main():
     # Инициализация.
     exchange = connect_exchange()  # Соединение с Биржей
     print(f'Баланс Аккаунта:\n{get_balance(exchange)}\n{dividing_line}')  # Баланс аккаунта
-    check_enough_funds(exchange)  # Проверка. Достаточно ли Общих средств:
+    # check_enough_funds(exchange) # Проверка. Достаточно ли Общих средств:
 
     i = 1
     while get_bot_status_sql() == 'Run':
-        # ---------------------------------------------------------------------------------------
         print(f'{double_line}\nЦИКЛ: {i}\n{double_line}')
         start_time = time()
-
+        # ---------------------------------------------------------------------------------------
         # Стартовая Цена от которой будут определять уровни и Количество Знаков после Запятой для Цен и Объемов
         start_price, step_price, step_volume = get_params_symbol(exchange)
         print(f'Старт-Цена: {start_price} | Шаг Цен: {step_price} | Шаг Объемов: {step_volume}\n{dividing_line}')
@@ -354,14 +402,19 @@ def main():
             print_info_order(order)
         print(dividing_line)
         sleep(SLEEP_Level)
-
+        # ---------------------------------------------------------------------------------------
+        sleep(SLEEP_LOOP)
         finish_time = time()
         print(f'Выполнено за: {start_time - finish_time} сек.')
         i += 1
-    # ---------------------------------------------------------------------------------------
+
+        # Жду Сделок для корректировки Всего Пакета Ордеров
+        while not there_trades(exchange) and get_bot_status_sql() == 'Run':
+            sleep(SLEEP_LOOP)
+
     match get_bot_status_sql():
         case 'Stop':
-            cancel_orders(exchange, name=None) # Удаляю ВСЕ Ордера этого Бота
+            cancel_orders(exchange, name=None)
         case 'Pause':
             pass
         case _:

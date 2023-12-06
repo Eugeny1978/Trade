@@ -47,6 +47,11 @@ def main():
     # balance = get_balance(exchange)
     # print(balance)
 
+    # order_book = exchange.fetch_order_book(SYMBOL)
+    # print(order_book)
+    my_trades = exchange.fetch_my_trades(SYMBOL)
+    print(my_trades)
+
 
 
 main()
