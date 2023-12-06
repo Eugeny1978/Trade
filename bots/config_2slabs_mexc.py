@@ -19,7 +19,7 @@ import sqlite3 as sq            # Работа с БД
 from data_bases.path_to_base import DATABASE
 bot_name = 'bot_2slabs_mexc'
 # 'Run' - Запущен / 'Pause' (Теущие Ордера Стоят, Новые не ставятся) / 'Stop' - Остановлен. Ордера Удалены
-BOT = 'Run'
+BOT = 'Stop'
 
 def set_bot_status_sql():
     with sq.connect(DATABASE) as connect:
