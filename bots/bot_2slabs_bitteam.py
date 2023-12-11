@@ -120,11 +120,11 @@ def check_part_volume():
         raise Exception(f'Неверно заданы Доли Используемых средств. | (PART_carrot + PART_1slab + PART_2slab) Должна = 100')
 
 def write_order_sql(order, name:LevelType):
+    params = (order['id'], order['symbol'], order['type'], order['side'], order['quantity'], order['price'], name)
     with sq.connect(DATABASE) as connect:
         curs = connect.cursor()
         # "INSERT INTO orders VALUES(?, (SELECT name FROM pairs WHERE id=?), ?, ?, ?, ?)"
-        curs.execute(f"""INSERT INTO {order_table} VALUES(?, ?, ?, ?, ?, ?, ?)""",
-        (order['id'], order['symbol'], order['type'], order['side'], order['quantity'], order['price'], name))
+        curs.execute(f"INSERT INTO {order_table} VALUES(?, ?, ?, ?, ?, ?, ?)", params)
 
 def get_id_orders_sql(name:LevelType=None) -> list:
     with sq.connect(DATABASE) as connect:
