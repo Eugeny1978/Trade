@@ -14,12 +14,14 @@ class RequestsDataBase:
         self.account = account_name
         self.bot_name = bot_name
         self.order_table = order_table
-        self.exchange = self.get_exchange()
-        self.apikeys = self.get_apikeys()
+        self.exchange = self.__get_exchange()
+        self.apikeys = self.__get_apikeys()
 
-    def get_exchange(self):
+    def __get_exchange(self):
+        """
+        :return Получает Имя Биржи
+        """
         with sq.connect(DATABASE) as connect:
-            connect.row_factory = sq.Row  # Строки записей в виде dict {}. По умолчанию - кортежи turple ()
             curs = connect.cursor()
             curs.execute(f"SELECT exchange FROM Accounts WHERE name LIKE '{self.account}'")
             try:
@@ -28,7 +30,10 @@ class RequestsDataBase:
             except:
                 raise('В Базе Данных НЕТ данного Аккаунта')
 
-    def get_apikeys(self):
+    def __get_apikeys(self):
+        """
+        :return: Получает АПИ Ключи
+        """
         with sq.connect(DATABASE) as connect:
             connect.row_factory = sq.Row  # Строки записей в виде dict {}. По умолчанию - кортежи turple ()
             curs = connect.cursor()
@@ -40,29 +45,41 @@ class RequestsDataBase:
                 raise ('У данного Аккаунта в Базе Данных НЕТ API Ключей')
 
     def write_order(self, order, name:str): # name: LevelType
+        """
+        Записывает Ранее Созданный Ордер в Базу Данных
+        :param order: dict
+        :param name: str 'carrots', 'slab'
+        :return:
+        """
         match self.exchange:
             case 'BitTeam':
                 params = [order['id'], order['symbol'], order['type'], order['side'], order['quantity'], order['price']]
             case _:
                 params = [order['id'], order['symbol'], order['type'], order['side'], order['amount'], order['price']]
-        params = tuple(params.append(name))
+        params.append(name)
         with sq.connect(DATABASE) as connect:
             curs = connect.cursor()
-            curs.execute(f"INSERT INTO {self.order_table} VALUES(?, ?, ?, ?, ?, ?, ?)", params)
+            try:
+                curs.execute(f"INSERT INTO {self.order_table} VALUES(?, ?, ?, ?, ?, ?, ?)", tuple(params))
+            except Exception as error:
+                print(error)
 
     def get_id_orders(self, name=None) -> list: # name:LevelType = None
+        """
+        :return Получает Список ID выставленных Ордеров
+        """
         with sq.connect(DATABASE) as connect:
             curs = connect.cursor()
-            if name:
-                curs.execute(f"SELECT id FROM {self.order_table} WHERE name LIKE '{name}'")
-            else:
-                curs.execute(f"SELECT id FROM {self.order_table}")
-            ids = []
-            for select in curs:
-                ids.append(select[0])
-            return ids
+            injection = f" WHERE name LIKE '{name}'" if name else ''
+            curs.execute(f"SELECT id FROM {self.order_table}{injection}")
+            ids = [select[0] for select in curs]
+        return ids
 
     def delete_old_orders(self, old_ids: list):
+        """
+        Удаляет Неактуальные Ордера
+        :param old_ids: Список неактуальных ордеров
+        """
         with sq.connect(DATABASE) as connect:
             curs = connect.cursor()
             # ids = ','.join(map(str, id_for_delete))
@@ -71,6 +88,9 @@ class RequestsDataBase:
         print(f'Из БД удалены Ордера: {old_ids}')
 
     def get_bot_status(self):
+        """
+        :return: Получает Статус Бота Run(Работает) Stop(Остановлен) Pause(Пауза)
+        """
         with sq.connect(DATABASE) as connect:
             curs = connect.cursor()
             curs.execute(f"SELECT status FROM {STATUS_TABLE} WHERE bot LIKE '{self.bot_name}'")
