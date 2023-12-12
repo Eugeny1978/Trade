@@ -1,8 +1,7 @@
-import json
-
 import requests                                 # Библиотека для создания и обработки запросов
 import sqlite3 as sq                            # Библиотека  Работа с БД
 from typing import Literal                      # Создание Классов Перечислений
+# import pandas as pd                           # Преобразовать Словари в Таблицы
 from data_bases.path_to_base import DATABASE    # Путь к БД
 
 # responce = requests.post(url, auth, data, headers=headers) # Возможно необходимо прописать Заголовок headers = {'user-agent': 'my-app/0.0.1'}
@@ -16,8 +15,8 @@ UserOrderTypes = Literal['history', 'active', 'closed', 'cancelled', 'all'] # hi
 
 class BitTeam(): # Request
     base_url = 'https://bit.team/trade/api'
-    status = None   # Статус-код последнего запроса 200 - если ок
-    data = None     # Данные последнего запроса
+    status = None # Статус-код последнего запроса 200 - если ок
+    data = None # Данные последнего запроса
     database = DATABASE
     auth = None
     __name__ = 'BitTeam'
@@ -29,36 +28,8 @@ class BitTeam(): # Request
         self.account = account
 
     @staticmethod
-    def format_symbol(symbol: str):
-        """
-        Привожу Унифицированный Формат к Родному
-        """
+    def format_symbol(symbol: str): # Привожу Унифицированный Формат к Родному
         return symbol.lower().replace('/', '_')
-
-    def __request(self, path:str, method:str='get', params={}, data={}):
-        """
-        :param path:
-        :param method: 'get', 'post'
-        :param params: dict
-        :return: Возвращает Данные Запроса
-        """
-        url = (self.base_url + path)
-        match method:
-            case 'get':
-                response = requests.get(url, auth=self.auth, params=params, data=data)
-            case 'post':
-                response = requests.post(url, auth=self.auth, params=params, data=data)
-            case _:
-                response = {}
-        self.status = response.status_code
-        self.data = response.json()
-        match self.status:
-            case 200:
-                if self.data['ok'] == True and 'result' in self.data: # if not (("statusCode" in self.data) and ("message" in self.data)):
-                    return self.data
-            case _:
-                print(f'Статус-Код: {self.status} | {self.data}')
-                raise
 
     def fetch_order_book(self, symbol='del_usdt'): #
         """
@@ -66,7 +37,11 @@ class BitTeam(): # Request
         Также Стакан есть и в запросе "pair". Но там он обрезан лимитом в 50 слотов
         """
         symbol = self.format_symbol(symbol)
-        return self.__request(path=f'/orderbooks/{symbol}') # json.dumps(response)
+        end_point = f'{self.base_url}/orderbooks/{symbol}'
+        responce = requests.get(url=end_point)
+        self.status = responce.status_code
+        self.data = responce.json()
+        return self.data
 
     def fetch_ticker(self, symbol='del_usdt'):
         """
@@ -81,13 +56,21 @@ class BitTeam(): # Request
         print(f"Мин. Размер Позы в USD: {self.date['result']['pair']['settings']['limit_usd']}")
         """
         symbol = self.format_symbol(symbol)
-        return self.__request(path=f'/pair/{symbol}')
+        end_point = f'{self.base_url}/pair/{symbol}'
+        responce = requests.get(url=end_point)
+        self.status = responce.status_code
+        self.data = responce.json()
+        return self.data
 
     def info_symbols(self):
         """
         Метод для получения информации обо всех торговых парах
         """
-        self.__request(path='/pairs')
+        end_point = f'{self.base_url}/pairs'
+        # dt_now = self.get_moment_date()
+        responce = requests.get(url=end_point)
+        self.status = responce.status_code
+        self.data = responce.json()
         self.__load_symbols_database() # Возможно сделать доп проверку чтобы не постоянно скидывать в базу
         return self.data
 
@@ -106,16 +89,15 @@ class BitTeam(): # Request
             for symbol in self.data['result']['pairs']:
                 curs.execute("""
             INSERT INTO Symbols (id, name, baseStep, quoteStep) 
-            VALUES (:Id, :Name, :BaseStep, :QuoteStep)""",
-            {'Id': symbol['id'], 'Name': symbol['name'], 'BaseStep': symbol['baseStep'], 'QuoteStep': symbol['quoteStep']})
-
+            VALUES (:Id, :Name, :BaseStep, :QuoteStep)
+             """, {'Id': symbol['id'], 'Name': symbol['name'], 'BaseStep': symbol['baseStep'], 'QuoteStep': symbol['quoteStep']})
 
 # --- ПРИВАТНЫЕ ЗАПРОСЫ. Требуется Предварительная Авторизация -----------------------------
 
     def authorization(self):
         if (not self.account['apiKey']) or (not self.account['secret']):
             print('Ошибка Авторизации. Задайте/Проверьте Публичный и Секретный АПИ Ключи')
-            raise
+            # raise AuthorizationException
         basic_auth = requests.auth.HTTPBasicAuth(self.account['apiKey'], self.account['secret'])
         self.auth = basic_auth
 
@@ -124,8 +106,11 @@ class BitTeam(): # Request
         Полный Баланс По Спот Аккаунту
         """
         if not self.auth: self.authorization()
-        balance = self.__request(path=f'/ccxt/balance')
-        return balance['result']
+        end_point = f'{self.base_url}/ccxt/balance'
+        responce = requests.get(url=end_point, auth=self.auth)
+        self.status = responce.status_code
+        self.data = responce.json()
+        return self.data['result']
 
     def __get_pairId_database(self, symbol):
         with sq.connect(self.database) as connect:
@@ -133,7 +118,7 @@ class BitTeam(): # Request
             curs.execute(f"SELECT id FROM Symbols WHERE name LIKE '{symbol}'")
             return str(curs.fetchone()[0])
 
-    def create_order(self, symbol: str, type: OrderType, side: OrderSide, amount: float, price: float=0):
+    def create_order(self, symbol: str, type: OrderType, side: OrderSide, amount: float, price: float):
         """
         Привести к Виду:
         body = {'pairId':   str, #  '24' del_usdt
@@ -148,11 +133,20 @@ class BitTeam(): # Request
         body = {'pairId': pairId,
                 'side': side,
                 'type': type,
-                'amount': str(round(amount, 6)) # пока округляю до 6 знаков
+                'amount': str(round(amount, 6)), # пока округляю до 6 знаков
+                'price': str(round(price, 6))   # пока округляю до 6 знаков
                 }
-        if type == 'limit':
-            body['price'] = str(round(price, 6)) # пока округляю до 6 знаков
-        return self.__request(path='/ccxt/ordercreate', method='post', data=body)
+
+        end_point = f'{self.base_url}/ccxt/ordercreate'
+        responce = requests.post(url=end_point, auth=self.auth, data=body)
+        self.status = responce.status_code
+        self.data = responce.json()
+        # if self.status == 200:
+        #     print(f'BitTeam. Создан Ордер ID: {self.data["result"]["id"]}')
+        # else:
+        #     print(f'BitTeam_DONT_create_order_{symbol}_{side}_{type}_{body["amount"]}_{body["price"]}')
+        #     print(self.data)
+        return self.data # Доработать ВЕРНУТЬ инфу для заполнения таблицы Ордеров в Базе Данных!
 
     def cancel_order(self, id: (int, str)):
         """
@@ -160,13 +154,16 @@ class BitTeam(): # Request
         id_order = data['result']['id'] # create_order(body)
         """
         if not self.auth: self.authorization()
+        end_point = f'{self.base_url}/ccxt/cancelorder'
         body = {"id": id}
-        return self.__request(path='/ccxt/cancelorder', method='post', data=body)
+        responce = requests.post(url=end_point, auth=self.auth, data=body)
+        self.status = responce.status_code
+        self.data = responce.json()
         # if self.status == 200:
         #     print(f'BitTeam. Удален Ордер ID: {id}')
         # else:
         #     print(f'BitTeam. Ордер ID: {id} - НЕ Удален')
-        # Подумай что он должен вернуть
+        return self.data # Подумай что он должен вернуть
 
     def cancel_all_orders(self, symbol=None):
         """
@@ -178,13 +175,18 @@ class BitTeam(): # Request
             pairId = self.__get_pairId_database(self.format_symbol(symbol))
         else:
             pairId = 0
+        end_point = f'{self.base_url}/ccxt/cancel-all-order'
         body = {"pairId": pairId}
-        self.__request(path='/ccxt/cancel-all-order', method='post', data=body)
-        if pairId:
+        responce = requests.post(url=end_point, auth=self.auth, data=body)
+        self.status = responce.status_code
+        self.data = responce.json()
+        if self.status == 200 and not pairId:
+            print(f'BitTeam. Удалены ВСЕ Ордера')
+        elif self.status == 200:
             print(f'BitTeam. Удалены Все Ордера по Символу: {symbol}')
         else:
-            print(f'BitTeam. Удалены ВСЕ Ордера')
-        return self.data
+            print(f'BitTeam. Ордера НЕ Удалены. | Символ: {symbol}')
+        return self.data # Подумай что он должен вернуть
 
     def fetch_order(self, order_id: (int or str)):
         """
@@ -192,34 +194,36 @@ class BitTeam(): # Request
         Информация об Ордере по его ID
         """
         if not self.auth: self.authorization()
-        return self.__request(path=f'/ccxt/order/{order_id}')
+        end_point = f'{self.base_url}/ccxt/order/{order_id}'
+        responce = requests.get(url=end_point, auth=self.auth)
+        self.status = responce.status_code
+        self.data = responce.json()
+        return self.data
 
     def fetch_orders(self, symbol=None, since=None, limit=1000, type:UserOrderTypes='active', offset=0, order='', where=''):
         """
         fetch_orders(self, symbol: Optional[str] = None, since: Optional[int] = None, limit: Optional[int] = None, params={})
+
         Ордера за Текущую Дату
         type= 'history', 'active', 'closed', 'cancelled', 'all'| history = closed + cancelled
         offset=х - смещение: не покажет первые Х ордеров
         {{baseUrl}}/trade/api/ccxt/ordersOfUser?limit=10&offset=0&type=active&order=<string>&where=<string>
-        Для order='', where='': Из документации НЕ понятно Что за Объект должен передаваться
-        Статус-Код: 400 | {'message': '"order" must be of type object', 'path': ['order'], 'type': 'object.base',
-        'context': {'type': 'object', 'label': 'order', 'value': '', 'key': 'order'}}
         """
+        # Необязательные Параметры
+        url_limit = '' if limit == 10 else f'&limit={limit}'
+        url_offset = '' if offset == 0 else f'&offset={offset}'
+        url_order = '' if order == '' else f'&order={order}'
+        url_where = '' if where == '' else f'&where={where}'
         if not self.auth: self.authorization()
-        payloads = {
-            'limit': limit,
-            'type': type,
-            'offset': offset
-            }
-        self.__request(path=f'/ccxt/ordersOfUser', params=payloads)
-        if symbol:
+        end_point = f'{self.base_url}/ccxt/ordersOfUser?type={type}' + url_limit + url_offset + url_order + url_where
+        responce = requests.get(url=end_point, auth=self.auth)
+        self.status = responce.status_code
+        self.data = responce.json()
+        if self.status == 200 and symbol:
             self.__filter_orders(self.format_symbol(symbol))
         return self.data
 
     def __filter_orders(self, symbol):
-        """
-        Фильтр по Конкретному SYMBOL
-        """
         count = 0
         data_orders = []
         for order in self.data['result']['orders']:

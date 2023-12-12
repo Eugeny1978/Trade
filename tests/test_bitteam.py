@@ -1,10 +1,10 @@
-from connectors.bitteam2 import BitTeam
+from connectors.bitteam import BitTeam
 from connectors.data_base import RequestsDataBase
+from time import sleep
 ACCOUNT = 'Luchnik_BitTeam'
 SYMBOL_1 = 'DEL/USDT'
 SYMBOL_2 = 'ETH/USDT'
 div_line = '-------------------------------------------------------------------------------------'
-from time import sleep
 
 exchange = BitTeam()
 
@@ -59,12 +59,18 @@ exchange.account = data_base.apikeys
 # print(orders)
 
 
-prices = [0.021, 0.022, 0.023]
-[exchange.create_order(SYMBOL_1, type='limit', side='sell', amount=300, price=price) for price in prices]
-sleep(1)
-orders = exchange.fetch_orders()
-print(orders)
-exchange.cancel_all_orders()
+# prices = [0.021, 0.022, 0.023]
+# [exchange.create_order(SYMBOL_1, type='limit', side='sell', amount=300, price=price) for price in prices]
+# sleep(1)
+# orders = exchange.fetch_orders()
+# print(orders)
+# exchange.cancel_all_orders()
+
+# trades = exchange.fetch_my_trades()
+trades = exchange.fetch_my_trades(SYMBOL_1)
+print(trades)
+
+
 
 
 
