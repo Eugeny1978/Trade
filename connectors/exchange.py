@@ -1,7 +1,7 @@
 import ccxt
 import pandas as pd             # Объекты DataFrame
-from .bitteam import BitTeam
-from .data_base import RequestsDataBase
+from connectors.bitteam import BitTeam
+from connectors.data_base import RequestsDataBase
 
 # ACCOUNT =  'Luchnik_BitTeam' # 'Constantin_BitTeam' # 'Luchnik_Mexc'
 # ORDER_TABLE = 'orders_2slabs_mexc'
@@ -13,6 +13,9 @@ class Exchange():
     def __init__(self, data_base: RequestsDataBase):
         self.data_base = data_base
         self.exchange = self.connect_exchange()
+
+    def __str__(self):
+        return self.data_base.exchange
 
     def connect_exchange(self):
         keys = self.data_base.apikeys
@@ -26,7 +29,8 @@ class Exchange():
             case 'Bybit':
                 exchange = ccxt.bybit(keys)
             case _:
-                raise('Биржа не прописана в функции connect_exchange()')
+                print(f'Биржа | {self.data_base.exchange} | не прописана в функции connect_exchange()')
+                raise
         if not isinstance(exchange, BitTeam):
             exchange.load_markets()
         return exchange

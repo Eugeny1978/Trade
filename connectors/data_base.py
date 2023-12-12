@@ -28,7 +28,9 @@ class RequestsDataBase:
                 exchange_name = curs.fetchone()[0]
                 return exchange_name
             except:
-                raise('В Базе Данных НЕТ данного Аккаунта')
+                print(f'В Базе Данных НЕТ данного Аккаунта: {self.account}')
+                raise
+
 
     def __get_apikeys(self):
         """
@@ -42,7 +44,9 @@ class RequestsDataBase:
                 keys = curs.fetchone()
                 return {'apiKey': keys['apikey'], 'secret': keys['secret']}
             except:
-                raise ('У данного Аккаунта в Базе Данных НЕТ API Ключей')
+                print(f'У данного Аккаунта в Базе Данных НЕТ API Ключей: {self.account}')
+                raise
+
 
     def write_order(self, order, name:str): # name: LevelType
         """

@@ -19,6 +19,10 @@ class BitTeam(): # Request
     data = None # Данные последнего запроса
     database = DATABASE
     auth = None
+    __name__ = 'BitTeam'
+
+    def __str__(self):
+        return self.__name__
 
     def __init__(self, account={'apiKey': None, 'secret': None}):
         self.account = account
@@ -132,6 +136,7 @@ class BitTeam(): # Request
                 'amount': str(round(amount, 6)), # пока округляю до 6 знаков
                 'price': str(round(price, 6))   # пока округляю до 6 знаков
                 }
+
         end_point = f'{self.base_url}/ccxt/ordercreate'
         responce = requests.post(url=end_point, auth=self.auth, data=body)
         self.status = responce.status_code
