@@ -16,6 +16,7 @@ class AnyExchange:
         print('Соединение с ByBit')
         return ccxt.bybit()
 
+    # КОНФИГУРАЦИОННЫЙ СЛОВАРЬ
     connect_to_exchange = {
                 'BitTeam': connect_to_bitteam,
                 'Binance': connect_to_binance,
@@ -24,7 +25,7 @@ class AnyExchange:
 
     def __init__(self, exchange_name):
         self.name_exchange = exchange_name
-        self.connect = self.connect_to_exchange[exchange_name](self)
+        self.connect = self.connect_to_exchange[exchange_name](self) # Выбор Функии из Словаря
 def main():
     ex = AnyExchange('BitTeam')
     print(ex.connect.fetch_order_book())
