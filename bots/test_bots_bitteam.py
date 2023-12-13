@@ -8,8 +8,9 @@ import json
 
 from connectors.bitteam import BitTeam
 # from config_2slabs_bitteam import *
-from config_neighbour_bitteam import *
+# from config_neighbour_bitteam import *
 from data_bases.path_to_base import DATABASE
+ACCOUNT = 'Constantin_BitTeam'
 
 pd.options.display.width= None # Отображение Таблицы на весь Экран
 pd.options.display.max_columns= 20 # Макс Кол-во Отображаемых Колонок
@@ -44,7 +45,7 @@ def get_balance(exchange):
 def main():
 
     exchange = connect_exchange()
-    # balance = get_balance(exchange)
+    balance = get_balance(exchange)
     # print(balance)
 
     # order_book = exchange.fetch_order_book(SYMBOL)

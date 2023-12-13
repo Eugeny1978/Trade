@@ -1,7 +1,7 @@
 from connectors.bitteam import BitTeam
 from connectors.data_base import RequestsDataBase
 from time import sleep
-ACCOUNT = 'Luchnik_BitTeam'
+ACCOUNT = 'Constantin_BitTeam' # 'Luchnik_BitTeam'
 SYMBOL_1 = 'DEL/USDT'
 SYMBOL_2 = 'ETH/USDT'
 div_line = '-------------------------------------------------------------------------------------'
@@ -67,8 +67,8 @@ exchange.account = data_base.apikeys
 # exchange.cancel_all_orders()
 
 # trades = exchange.fetch_my_trades()
-trades = exchange.fetch_my_trades(SYMBOL_1)
-print(trades)
+# trades = exchange.fetch_my_trades(SYMBOL_1)
+# print(trades)
 
 
 
