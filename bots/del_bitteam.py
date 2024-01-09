@@ -69,11 +69,14 @@ def main_slices():
 
 def main_buy():
     exchange = connect_exchange()
-    price = 0.016003
+    price = 0.012
+    sell_price = 0.022
     # exchange.create_order(SYMBOL, type='limit', side='buy', amount=round(28650/price, 6), price=price)
-    exchange.create_order(SYMBOL, type='limit', side='buy', amount=740735, price=0.015000)
-    exchange.create_order(SYMBOL, type='limit', side='buy', amount=475855, price=0.014900)
-    exchange.create_order(SYMBOL, type='limit', side='buy', amount=740735, price=0.014800)
+    # exchange.create_order(SYMBOL, type='limit', side='buy', amount=740735, price=0.015000)
+    # exchange.create_order(SYMBOL, type='limit', side='buy', amount=475855, price=0.014900)
+    # exchange.create_order(SYMBOL, type='limit', side='buy', amount=740735, price=0.014800)
+    # exchange.create_order(SYMBOL, type='limit', side='buy', amount=round(16600/price, 6), price=price)
+    exchange.create_order(SYMBOL, type='limit', side='sell', amount=3989517, price=sell_price)
 
 
 def main_cancel():
@@ -86,6 +89,6 @@ def main_watch_orders():
     print_json(orders)
 
 # main_slices()
-# main_buy()
+main_buy()
 # main_cancel()
 # main_watch_orders()
