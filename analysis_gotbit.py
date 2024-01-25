@@ -10,11 +10,11 @@ dividing_line = '---------------------------------------------------------------
 double_line =   '====================================================================================='
 
 if __name__ == '__main__':
-    path_to_file = 'E:/РАБОТА/MEXC Gotbit  DELUSDT 2024_01_06.csv'
+    path_to_file = 'E:/РАБОТА/MEXC Gotbit DELUSDT 2024_01_06.csv'
     data = pd.read_csv(path_to_file, delimiter=';')
     data['create_time'] = data['create_time'].astype('datetime64[ns]')
     # data.info()
-    data = data[data['create_time'] < '2023-12-07']
+    data = data[data['create_time'] < '2023-12-20']
     # print(data)
 
     buy_data = data.query(f'side == "BUY"').copy().reset_index()[['price', 'quantity', 'amount_usdt']]
