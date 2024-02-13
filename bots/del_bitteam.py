@@ -78,7 +78,6 @@ def main_buy():
     # exchange.create_order(SYMBOL, type='limit', side='buy', amount=round(16600/price, 6), price=price)
     exchange.create_order(SYMBOL, type='limit', side='sell', amount=3989517, price=sell_price)
 
-
 def main_cancel():
     exchange = connect_exchange()
     exchange.cancel_all_orders(SYMBOL)
@@ -88,7 +87,8 @@ def main_watch_orders():
     orders = exchange.fetch_orders(SYMBOL)
     print_json(orders)
 
-# main_slices()
-main_buy()
-# main_cancel()
-# main_watch_orders()
+if __name__ == '__main__':
+    # main_slices()
+    # main_buy()
+    # main_cancel()
+    main_watch_orders()
