@@ -18,29 +18,33 @@ def get_accounts():
         curs.execute("""SELECT 
 account, 
 apikey as apiKey, 
-secret, 
+secret,
+password, 
 Accounts.exchange,
 Accounts.type 
 FROM Apikeys 
 JOIN Accounts ON Accounts.name == Apikeys.account
-WHERE Apikeys.name LIKE 'Info'""")
+WHERE Apikeys.name LIKE 'Info'
+ORDER BY account""")
         return curs.fetchall()
 
 def connect_exchange(account):
-    apikeys = {'apiKey': account['apiKey'], 'secret': account['secret']}
+    keys = {'apiKey': account['apiKey'], 'secret': account['secret'], 'password': account['password']}
     match account['exchange']:
         case 'Binance':
-            exchange = ccxt.binance(apikeys)
+            exchange = ccxt.binance(keys)
             if account['type'] == 'test':
                 exchange.set_sandbox_mode(True)
         case 'BitTeam':
-            exchange = BitTeam(apikeys)
+            exchange = BitTeam(keys)
         case 'Bybit':
-            exchange = ccxt.bybit(apikeys)
+            exchange = ccxt.bybit(keys)
         case 'Mexc':
-            exchange = ccxt.mexc(apikeys)
+            exchange = ccxt.mexc(keys)
         case 'Gate_io':
-            exchange = ccxt.gateio(apikeys)
+            exchange = ccxt.gateio(keys)
+        case 'Okx':
+            exchange = ccxt.okx(keys)
         case _:
             exchange = None
     # match account['exchange']:

@@ -321,12 +321,24 @@ def get_bot_status_sql():
         return curs.fetchone()[0]
 
 def get_trade_ids(exchange):
-    trades = exchange.fetch_my_trades(SYMBOL, limit=100) #
-    trade_ids = []
+    loop = True
+    while loop:
+        try:
+            trades = exchange.fetch_my_trades(SYMBOL, limit=100)
+            loop = False
+        except:
+            print(f'Биржа не отработала запрос! Попробую снова. | {get_local_time()}')
+            sleep(SLEEP_LOOP)
     if len(trades) > 0:
-        for trade in trades:
-            trade_ids.append(trade['order'])
+        trade_ids = [str(trade['order']) for trade in trades]
+    else: trade_ids = []
     return list(set(trade_ids)) # тк один ордер может исполниться несколькими сделками
+    # trades = exchange.fetch_my_trades(SYMBOL, limit=100) #
+    # trade_ids = []
+    # if len(trades) > 0:
+    #     for trade in trades:
+    #         trade_ids.append(trade['order'])
+    # return list(set(trade_ids)) # тк один ордер может исполниться несколькими сделками
 
 def get_local_time():
     t = localtime()

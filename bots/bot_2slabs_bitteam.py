@@ -120,11 +120,11 @@ def check_part_volume():
         raise Exception(f'Неверно заданы Доли Используемых средств. | (PART_carrot + PART_1slab + PART_2slab) Должна = 100')
 
 def write_order_sql(order, name:LevelType):
-    params = (order['id'], order['symbol'], order['type'], order['side'], order['quantity'], order['price'], name)
     with sq.connect(DATABASE) as connect:
         curs = connect.cursor()
         # "INSERT INTO orders VALUES(?, (SELECT name FROM pairs WHERE id=?), ?, ?, ?, ?)"
-        curs.execute(f"INSERT INTO {order_table} VALUES(?, ?, ?, ?, ?, ?, ?)", params)
+        curs.execute(f"""INSERT INTO {order_table} VALUES(?, ?, ?, ?, ?, ?, ?)""",
+        (order['id'], order['symbol'], order['type'], order['side'], order['quantity'], order['price'], name))
 
 def get_id_orders_sql(name:LevelType=None) -> list:
     with sq.connect(DATABASE) as connect:
@@ -292,11 +292,17 @@ def get_bot_status_sql():
         return curs.fetchone()[0]
 
 def get_trade_ids(exchange):
-    trades = exchange.fetch_my_trades(SYMBOL, limit=30)['result']
-    trade_ids = []
+    loop = True
+    while loop:
+        try:
+            trades = exchange.fetch_my_trades(SYMBOL, limit=30)['result']
+            loop = False
+        except:
+            print(f'Биржа не отработала запрос! Попробую снова. | {get_local_time()}')
+            sleep(SLEEP_LOOP)
     if trades['count'] > 0:
-        for trade in trades['trades']:
-            trade_ids.append(str(trade['makerOrderId']))
+        trade_ids = [str(trade['makerOrderId']) for trade in trades['trades']]
+    else: trade_ids = []
     return trade_ids
 
 def get_local_time():
