@@ -1,0 +1,82 @@
+{
+  "id": "ETHUSDT",
+  "lowercaseId": null,
+  "symbol": "ETH/USDT",
+  "base": "ETH",
+  "quote": "USDT",
+  "settle": null,
+  "baseId": "ETH",
+  "quoteId": "USDT",
+  "settleId": null,
+  "type": "spot",
+  "spot": true,
+  "margin": null,
+  "swap": false,
+  "future": false,
+  "option": false,
+  "index": null,
+  "active": true,
+  "contract": false,
+  "linear": null,
+  "inverse": null,
+  "subType": null,
+  "taker": 0.001,
+  "maker": 0.001,
+  "contractSize": null,
+  "expiry": null,
+  "expiryDatetime": null,
+  "strike": null,
+  "optionType": null,
+  "precision": {
+    "amount": 1e-05,
+    "price": 0.01,
+    "cost": null,
+    "base": null,
+    "quote": null
+  },
+  "limits": {
+    "leverage": {
+      "min": 1.0,
+      "max": null
+    },
+    "amount": {
+      "min": 0.00062,
+      "max": 1229.2336343
+    },
+    "price": {
+      "min": null,
+      "max": null
+    },
+    "cost": {
+      "min": 1.0,
+      "max": 2000000.0
+    }
+  },
+  "created": null,
+  "info": {
+    "symbol": "ETHUSDT",
+    "baseCoin": "ETH",
+    "quoteCoin": "USDT",
+    "innovation": "0",
+    "status": "Trading",
+    "marginTrading": "both",
+    "lotSizeFilter": {
+      "basePrecision": "0.00001",
+      "quotePrecision": "0.0000001",
+      "minOrderQty": "0.00062",
+      "maxOrderQty": "1229.2336343",
+      "minOrderAmt": "1",
+      "maxOrderAmt": "2000000"
+    },
+    "priceFilter": {
+      "tickSize": "0.01"
+    },
+    "riskParameters": {
+      "limitParameter": "0.03",
+      "marketParameter": "0.03"
+    }
+  },
+  "percentage": true,
+  "feeSide": "get",
+  "tierBased": true
+}
